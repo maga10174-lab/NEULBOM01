@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <path fill="#22C55E" d="M50,0 C60,20 70,40 80,50 C70,60 60,80 50,100 C40,80 30,60 20,50 C30,40 40,20 50,0 Z" transform="rotate(45 50 50)">
+    <animateTransform attributeName="transform" type="rotate" from="45 50 50" to="405 50 50" dur="15s" repeatCount="indefinite" />
+  </path>
+  <path fill="#86EFAC" d="M50,10 C58,30 65,45 70,50 C65,55 58,70 50,90 C42,70 35,55 30,50 C35,45 42,30 50,10 Z" transform="rotate(45 50 50)">
+     <animateTransform attributeName="transform" type="rotate" from="45 50 50" to="405 50 50" dur="15s" repeatCount="indefinite" />
+  </path>
+</svg>
