@@ -22,33 +22,36 @@ export interface House {
 }
 
 export interface Booking {
-  id: number;
+  id: string; // Changed from number to string for Firestore ID
   guestName: string;
   arrivalDate: string;
   departureDate: string;
-  flightTicket?: File;
+  flightTicketUrl?: string; // Changed from File to string URL
   flightTicketName?: string;
   kakaoId: string;
   flightNumber: string;
   status: 'pending' | 'confirmed';
+  createdAt: number; // For sorting
 }
 
 export type GalleryCategory = 'guesthouse' | 'restaurant';
 
-export type GalleryImage = {
+export interface GalleryImage {
   id: string;
   type: 'image';
   url: string;
   alt: string;
   category: GalleryCategory;
-};
+  order: number;
+}
 
-export type GalleryVideo = {
+export interface GalleryVideo {
   id: string;
   type: 'video';
   youtubeId: string;
   title: string;
   category: GalleryCategory;
-};
+  order: number;
+}
 
 export type GalleryMediaItem = GalleryImage | GalleryVideo;

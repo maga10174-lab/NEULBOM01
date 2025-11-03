@@ -3,7 +3,7 @@ import type { Booking as BookingType } from '../types';
 import { CheckCircleIcon } from './icons';
 
 interface BookingProps {
-  addBooking: (booking: Omit<BookingType, 'id' | 'status'>) => void;
+  addBooking: (booking: Omit<BookingType, 'id' | 'status' | 'createdAt' | 'flightTicketUrl'>, flightTicket?: File) => Promise<void>;
   onBack: () => void;
 }
 
@@ -22,9 +22,11 @@ export const Booking: React.FC<BookingProps> = ({ addBooking, onBack }) => {
     departureDate: getTodayString(),
     kakaoId: '',
     flightNumber: '',
+    flightTicketName: '',
   });
   const [flightTicket, setFlightTicket] = useState<File | undefined>();
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -34,13 +36,22 @@ export const Booking: React.FC<BookingProps> = ({ addBooking, onBack }) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFlightTicket(e.target.files[0]);
+      setFormData(prev => ({...prev, flightTicketName: e.target.files![0].name}))
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    addBooking({ ...formData, flightTicket: flightTicket, flightTicketName: flightTicket?.name });
-    setIsSubmitted(true);
+    setIsSubmitting(true);
+    try {
+      await addBooking({ ...formData }, flightTicket);
+      setIsSubmitted(true);
+    } catch (error) {
+      console.error("Failed to submit booking:", error);
+      alert("예약 신청 중 오류가 발생했습니다. 다시 시도해주세요.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
   if (isSubmitted) {
@@ -98,8 +109,8 @@ export const Booking: React.FC<BookingProps> = ({ addBooking, onBack }) => {
             <label htmlFor="flightTicket" className="block text-sm font-medium text-gray-700">항공권 사진/파일</label>
             <input type="file" name="flightTicket" id="flightTicket" onChange={handleFileChange} className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"/>
           </div>
-          <button type="submit" className="w-full bg-primary-600 text-white py-3 px-4 rounded-lg hover:bg-primary-700 font-bold transition-colors">
-            예약 신청하기
+          <button type="submit" disabled={isSubmitting} className="w-full bg-primary-600 text-white py-3 px-4 rounded-lg hover:bg-primary-700 font-bold transition-colors disabled:bg-gray-400">
+            {isSubmitting ? '신청 중...' : '예약 신청하기'}
           </button>
         </form>
       </div>

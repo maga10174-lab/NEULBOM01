@@ -57,7 +57,13 @@ const App: React.FC = () => {
     switch (adminView) {
       case 'dashboard': return <Admin bookings={data.bookings} houses={data.houses} confirmBooking={data.confirmBooking} deleteBooking={data.deleteBooking} setAdminView={setAdminView} />;
       case 'management': return <Management houses={data.houses} updateHouse={data.updateHouse} title="전체 주택 관리" />;
-      case 'gallery': return <GalleryManagement galleryMedia={data.galleryMedia} updateGalleryMedia={data.updateGalleryMedia} />;
+      case 'gallery': return <GalleryManagement 
+          galleryMedia={data.galleryMedia} 
+          addItems={data.addGalleryMediaItems}
+          updateItem={data.updateGalleryMediaItem}
+          deleteItems={data.deleteGalleryMediaItems}
+          reorderItems={data.reorderGalleryMedia}
+        />;
       case 'vacantList':
         const vacantHouses = data.houses.filter(h => h.guests.length === 0);
         return <Management houses={vacantHouses} updateHouse={data.updateHouse} title="공실 목록" onBack={() => setAdminView('dashboard')} compact />;

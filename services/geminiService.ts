@@ -34,51 +34,38 @@ export const getWeatherInfo = async (): Promise<{ seoul: { temp: number; weather
         return null;
     }
 
-    const prompt = "대한민국 서울과 멕시코 몬테레이의 현재 날씨와 섭씨 온도를 알려줘. 날씨 설명은 '맑음', '흐림', '구름 많음', '비', '눈', '안개', '천둥번개' 중 하나로 아주 짧은 한국어 단어로 응답해줘.";
-
-    const schema = {
-        type: Type.OBJECT,
-        properties: {
-            seoul: {
-                type: Type.OBJECT,
-                properties: {
-                    weather: {
-                        type: Type.STRING,
-                        description: '서울의 현재 날씨 (예: 맑음, 흐림, 비)',
-                    },
-                    temp: {
-                        type: Type.NUMBER,
-                        description: '서울의 현재 섭씨 온도',
-                    },
-                },
-            },
-            monterrey: {
-                type: Type.OBJECT,
-                properties: {
-                    weather: {
-                        type: Type.STRING,
-                        description: '몬테레이의 현재 날씨 (예: 맑음, 흐림, 비)',
-                    },
-                    temp: {
-                        type: Type.NUMBER,
-                        description: '몬테레이의 현재 섭씨 온도',
-                    },
-                },
-            },
-        },
-    };
+    const prompt = `대한민국 서울과 멕시코 몬테레이의 현재 실시간 날씨와 섭씨 온도를 구글 검색을 통해 알려줘. 응답은 반드시 아래와 같은 JSON 형식이어야 해:
+\`\`\`json
+{
+  "seoul": {
+    "weather": "날씨 설명",
+    "temp": 25
+  },
+  "monterrey": {
+    "weather": "날씨 설명",
+    "temp": 30
+  }
+}
+\`\`\`
+날씨 설명은 '맑음', '흐림', '구름 많음', '비', '눈', '안개', '천둥번개' 중 하나로 아주 짧은 한국어 단어로 응답해줘.`;
 
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
             config: {
-                responseMimeType: "application/json",
-                responseSchema: schema,
+                tools: [{googleSearch: {}}],
             },
         });
 
-        const jsonString = response.text.trim();
+        let jsonString = response.text.trim();
+        // Handle markdown code block if present
+        if (jsonString.startsWith('```json')) {
+            jsonString = jsonString.substring(7, jsonString.length - 3).trim();
+        } else if (jsonString.startsWith('```')) {
+             jsonString = jsonString.substring(3, jsonString.length - 3).trim();
+        }
+
         const weatherData = JSON.parse(jsonString);
         return weatherData;
     } catch (error) {

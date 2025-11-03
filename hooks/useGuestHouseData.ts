@@ -1,35 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { House, Booking, StreetName, Guest, GalleryMediaItem } from '../types';
-
-const STREETS: Record<StreetName, string[]> = {
-  'Arteal': ['413', '415', '416', '428', '431', '432', '447'],
-  'Retamar': ['418', '420'],
-  'Tahal': ['506'],
-  'Ubedas': ['407', '433'],
-  'Ragol': ['507', '509', '443', '453', '480', '489', '491'],
-  'Vera': ['528'],
-  'PRIVADA3': ['231'],
-};
-
-const SPECIAL_CAPACITY: Record<string, number> = {
-  '506': 4,
-  '480': 5,
-  '528': 4,
-  '231': 5,
-};
-
-const initialHouses: House[] = Object.entries(STREETS).flatMap(([street, numbers]) => 
-  numbers.map(number => ({
-    id: `${street}-${number}`,
-    street: street as StreetName,
-    number,
-    rooms: 3,
-    capacity: SPECIAL_CAPACITY[number] || 3,
-    guests: [],
-  }))
-);
-
-const initialGalleryMedia: GalleryMediaItem[] = [];
+// FIX: Import GalleryImage to use for type casting.
+import type { House, Booking, GalleryMediaItem, GalleryImage } from '../types';
+import { db, storage } from '../services/firebase';
+import { 
+  collection, 
+  onSnapshot, 
+  doc, 
+  updateDoc, 
+  addDoc,
+  deleteDoc,
+  query,
+  orderBy,
+  writeBatch
+} from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 
 const ADMIN_PASSWORDS = ['4751', '3329']; 
@@ -42,141 +26,144 @@ export const useGuestHouseData = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    setIsLoading(true);
+
+    const housesQuery = query(collection(db, 'houses'));
+    const bookingsQuery = query(collection(db, 'bookings'), orderBy('createdAt', 'desc'));
+    const galleryQuery = query(collection(db, 'galleryMedia'), orderBy('order'));
+
+    const unsubHouses = onSnapshot(housesQuery, (snapshot) => {
+      const housesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as House));
+      setHouses(housesData);
+    }, (error) => console.error("Error fetching houses:", error));
+
+    const unsubBookings = onSnapshot(bookingsQuery, (snapshot) => {
+      const bookingsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
+      setBookings(bookingsData);
+    }, (error) => console.error("Error fetching bookings:", error));
+    
+    const unsubGallery = onSnapshot(galleryQuery, (snapshot) => {
+      const galleryData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GalleryMediaItem));
+      setGalleryMedia(galleryData);
+      setIsLoading(false); // Consider loaded after gallery (last query)
+    }, (error) => {
+      console.error("Error fetching gallery:", error);
+      setIsLoading(false);
+    });
+
     try {
-      const savedHouses = localStorage.getItem('neulbom_houses');
-      const savedBookings = localStorage.getItem('neulbom_bookings');
-      const savedGalleryMedia = localStorage.getItem('neulbom_gallery_media');
-      
-      if (savedHouses) {
-        try {
-          const parsedSavedHouses: any[] = JSON.parse(savedHouses);
-
-          const migratedHouses = parsedSavedHouses.map(h => {
-            if (h.isOccupied !== undefined) { // Data migration for old structure
-              const newHouse: House = {
-                id: h.id, street: h.street, number: h.number, rooms: h.rooms,
-                capacity: h.capacity, guests: [],
-              };
-              if (h.isOccupied && h.guestName) {
-                newHouse.guests.push({
-                  id: `migrated-${h.id}-${Date.now()}`,
-                  guestName: h.guestName,
-                  guestCompany: h.guestCompany || '',
-                  rentalCar: h.rentalCar || '',
-                  numberOfGuests: h.numberOfGuests || 1,
-                  checkInDate: h.checkInDate || '',
-                  checkOutDate: h.checkOutDate || '',
-                });
-              }
-              return newHouse;
-            }
-            return { ...h, guests: h.guests || [] };
-          });
-
-          const savedHousesMap = new Map<string, House>(migratedHouses.map(h => [h.id, h]));
-          
-          const housesToSet = initialHouses.map(initialHouse => {
-            const savedHouse = savedHousesMap.get(initialHouse.id);
-            if (savedHouse) {
-              return { ...initialHouse, guests: savedHouse.guests };
-            }
-            return initialHouse;
-          });
-
-          setHouses(housesToSet);
-        } catch (e) {
-            console.error("Failed to parse or merge saved houses, resetting.", e);
-            setHouses(initialHouses);
-        }
-      } else {
-        setHouses(initialHouses);
-      }
-      
-      setBookings(savedBookings ? JSON.parse(savedBookings) : []);
-      
-      if (savedGalleryMedia) {
-        try {
-            const parsedMedia: any[] = JSON.parse(savedGalleryMedia);
-            // Migration for items without category
-            const migratedMedia = parsedMedia.map(item => ({
-                ...item,
-                category: item.category || 'guesthouse' 
-            }));
-            setGalleryMedia(migratedMedia);
-        } catch (e) {
-            console.error("Failed to parse gallery media, resetting.", e);
-            setGalleryMedia(initialGalleryMedia);
-        }
-      } else {
-        setGalleryMedia(initialGalleryMedia);
-      }
-
-
       const sessionAuth = sessionStorage.getItem('neulbom_auth');
       if (sessionAuth === 'true') {
         setIsAuthenticated(true);
       }
-    } catch (error) {
-      console.error("Failed to load data from localStorage", error);
-      setHouses(initialHouses);
-      setBookings([]);
-      setGalleryMedia(initialGalleryMedia);
-    } finally {
-        setIsLoading(false);
+    } catch (e) {
+      console.error("Could not read session storage", e);
     }
+    
+
+    return () => {
+      unsubHouses();
+      unsubBookings();
+      unsubGallery();
+    };
   }, []);
 
-  const saveData = useCallback((key: string, data: any) => {
-    try {
-      localStorage.setItem(key, JSON.stringify(data));
-    } catch (error) {
-      console.error(`Failed to save data to localStorage: ${key}`, error);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!isLoading) {
-      saveData('neulbom_houses', houses);
-    }
-  }, [houses, isLoading, saveData]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      saveData('neulbom_bookings', bookings);
-    }
-  }, [bookings, isLoading, saveData]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      saveData('neulbom_gallery_media', galleryMedia);
-    }
-  }, [galleryMedia, isLoading, saveData]);
-
-
-  const updateHouse = (houseId: string, updatedData: Partial<Omit<House, 'id'>>) => {
-    setHouses(prev =>
-      prev.map(h => (h.id === houseId ? { ...h, ...updatedData } : h))
-    );
+  const updateHouse = async (houseId: string, updatedData: Partial<Omit<House, 'id'>>) => {
+    const houseDocRef = doc(db, 'houses', houseId);
+    await updateDoc(houseDocRef, updatedData);
   };
 
-  const addBooking = (newBooking: Omit<Booking, 'id' | 'status'>) => {
-    setBookings(prev => [
-      { ...newBooking, id: Date.now(), status: 'pending' },
-      ...prev,
-    ]);
+  const addBooking = async (newBooking: Omit<Booking, 'id' | 'status' | 'createdAt' | 'flightTicketUrl'>, flightTicket?: File) => {
+    let flightTicketUrl = '';
+    if (flightTicket) {
+      const ticketRef = ref(storage, `flight-tickets/${Date.now()}_${flightTicket.name}`);
+      const snapshot = await uploadBytes(ticketRef, flightTicket);
+      flightTicketUrl = await getDownloadURL(snapshot.ref);
+    }
+    
+    await addDoc(collection(db, 'bookings'), {
+      ...newBooking,
+      flightTicketUrl,
+      status: 'pending',
+      createdAt: Date.now(),
+    });
   };
 
-  const confirmBooking = (bookingId: number) => {
-    setBookings(prev => prev.map(b => b.id === bookingId ? {...b, status: 'confirmed'} : b));
+  const confirmBooking = async (bookingId: string) => {
+    const bookingDocRef = doc(db, 'bookings', bookingId);
+    await updateDoc(bookingDocRef, { status: 'confirmed' });
   };
 
-  const deleteBooking = (bookingId: number) => {
-    setBookings(prev => prev.filter(b => b.id !== bookingId));
+  const deleteBooking = async (bookingId: string) => {
+    // Note: This doesn't delete the associated flight ticket from storage to prevent accidental data loss.
+    // A cleanup script or more complex logic could handle this.
+    await deleteDoc(doc(db, 'bookings', bookingId));
   };
   
-  const updateGalleryMedia = (newMedia: GalleryMediaItem[]) => {
-    setGalleryMedia(newMedia);
+  const addGalleryMediaItems = async (items: (Omit<GalleryMediaItem, 'id' | 'order'> & { file?: File })[]) => {
+      const batch = writeBatch(db);
+      let currentOrder = galleryMedia.length;
+
+      for (const item of items) {
+          const docRef = doc(collection(db, "galleryMedia"));
+          let newItemData: any = { ...item, order: currentOrder++, id: docRef.id };
+          
+          if (item.type === 'image' && item.file) {
+              const imageRef = ref(storage, `gallery/${docRef.id}_${item.file.name}`);
+              const snapshot = await uploadBytes(imageRef, item.file);
+              newItemData.url = await getDownloadURL(snapshot.ref);
+          }
+          delete newItemData.file;
+          
+          batch.set(docRef, newItemData);
+      }
+      await batch.commit();
   };
+
+  const updateGalleryMediaItem = async (itemId: string, data: Partial<GalleryMediaItem>, newFile?: File) => {
+      const docRef = doc(db, "galleryMedia", itemId);
+      let updateData: any = { ...data };
+
+      if (data.type === 'image' && newFile) {
+          const imageRef = ref(storage, `gallery/${itemId}_${newFile.name}`);
+          const snapshot = await uploadBytes(imageRef, newFile);
+          updateData.url = await getDownloadURL(snapshot.ref);
+      }
+      
+      await updateDoc(docRef, updateData);
+  };
+  
+  const deleteGalleryMediaItems = async (itemIds: string[]) => {
+    const batch = writeBatch(db);
+    for (const id of itemIds) {
+        const itemToDelete = galleryMedia.find(m => m.id === id);
+        if (itemToDelete && itemToDelete.type === 'image') {
+            try {
+                // FIX: Explicitly cast `itemToDelete` to `GalleryImage` to ensure the `url` property is accessible.
+                // This resolves cases where TypeScript's type narrowing might fail inside a try-catch block.
+                const imageRef = ref(storage, (itemToDelete as GalleryImage).url);
+                await deleteObject(imageRef);
+            } catch (error: any) {
+                // If file doesn't exist in storage (e.g., from old data), log error but continue
+                if (error.code !== 'storage/object-not-found') {
+                    console.error(`Failed to delete image from storage: ${(itemToDelete as GalleryImage).url}`, error);
+                }
+            }
+        }
+        batch.delete(doc(db, "galleryMedia", id));
+    }
+    await batch.commit();
+  };
+  
+  const reorderGalleryMedia = async (newList: GalleryMediaItem[]) => {
+      const batch = writeBatch(db);
+      newList.forEach((item, index) => {
+          const docRef = doc(db, "galleryMedia", item.id);
+          batch.update(docRef, { order: index });
+      });
+      await batch.commit();
+  };
+
 
   const login = (password: string): boolean => {
     if (ADMIN_PASSWORDS.includes(password)) {
@@ -200,7 +187,10 @@ export const useGuestHouseData = () => {
     addBooking,
     confirmBooking,
     deleteBooking,
-    updateGalleryMedia,
+    addGalleryMediaItems,
+    updateGalleryMediaItem,
+    deleteGalleryMediaItems,
+    reorderGalleryMedia,
     isLoading,
     isAuthenticated,
     login,
