@@ -126,6 +126,9 @@ export const Introduction: React.FC<IntroductionProps> = ({ activeModal, setActi
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<GalleryCategory | null>(null);
 
+    // Only show items that are explicitly marked as visible (or don't have the property, for backward compatibility)
+    const visibleMedia = galleryMedia.filter(m => m.isVisible !== false);
+
     const handleCopyKakaoId = () => {
         if (kakaoIdCopied) return;
         navigator.clipboard.writeText('dongkeun1').then(() => {
@@ -146,11 +149,12 @@ export const Introduction: React.FC<IntroductionProps> = ({ activeModal, setActi
         setSelectedCategory(null);
     };
     
-    const filteredMedia = galleryMedia.filter(m => m.category === selectedCategory);
+    const filteredMedia = visibleMedia.filter(m => selectedCategory === null || m.category === selectedCategory);
 
     const openLightbox = (index: number) => {
-        const originalIndex = galleryMedia.findIndex(item => item.id === filteredMedia[index].id);
-        if (galleryMedia[originalIndex].type === 'image') {
+        // Find the original index in the *visible* media list to handle cross-category navigation correctly if needed
+        const originalIndex = visibleMedia.findIndex(item => item.id === filteredMedia[index].id);
+        if (originalIndex !== -1 && visibleMedia[originalIndex].type === 'image') {
             setSelectedMediaIndex(originalIndex);
         }
     };
@@ -159,26 +163,26 @@ export const Introduction: React.FC<IntroductionProps> = ({ activeModal, setActi
 
     const nextMedia = () => {
         if (selectedMediaIndex === null) return;
-        let nextIndex = selectedMediaIndex + 1;
-        while(nextIndex < galleryMedia.length && (galleryMedia[nextIndex].type !== 'image' || galleryMedia[nextIndex].category !== selectedCategory)) {
-            nextIndex++;
+        const currentCategoryImages = visibleMedia.filter(m => m.type === 'image' && m.category === selectedCategory);
+        const currentIndexInCategory = currentCategoryImages.findIndex(m => m.id === visibleMedia[selectedMediaIndex].id);
+        
+        if (currentIndexInCategory !== -1) {
+            const nextItemInCategory = currentCategoryImages[(currentIndexInCategory + 1) % currentCategoryImages.length];
+            const nextOverallIndex = visibleMedia.findIndex(m => m.id === nextItemInCategory.id);
+            setSelectedMediaIndex(nextOverallIndex);
         }
-        if (nextIndex >= galleryMedia.length) {
-            nextIndex = galleryMedia.findIndex(m => m.type === 'image' && m.category === selectedCategory);
-        }
-        if (nextIndex !== -1) setSelectedMediaIndex(nextIndex);
     };
 
     const prevMedia = () => {
         if (selectedMediaIndex === null) return;
-        let prevIndex = selectedMediaIndex - 1;
-        while(prevIndex >= 0 && (galleryMedia[prevIndex].type !== 'image' || galleryMedia[prevIndex].category !== selectedCategory)) {
-            prevIndex--;
+        const currentCategoryImages = visibleMedia.filter(m => m.type === 'image' && m.category === selectedCategory);
+        const currentIndexInCategory = currentCategoryImages.findIndex(m => m.id === visibleMedia[selectedMediaIndex].id);
+
+        if (currentIndexInCategory !== -1) {
+            const prevItemInCategory = currentCategoryImages[(currentIndexInCategory - 1 + currentCategoryImages.length) % currentCategoryImages.length];
+            const prevOverallIndex = visibleMedia.findIndex(m => m.id === prevItemInCategory.id);
+            setSelectedMediaIndex(prevOverallIndex);
         }
-        if (prevIndex < 0) {
-            prevIndex = galleryMedia.findLastIndex(m => m.type === 'image' && m.category === selectedCategory);
-        }
-        if (prevIndex !== -1) setSelectedMediaIndex(prevIndex);
     };
 
 
@@ -192,7 +196,7 @@ export const Introduction: React.FC<IntroductionProps> = ({ activeModal, setActi
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [selectedMediaIndex, galleryMedia, selectedCategory]);
+    }, [selectedMediaIndex, visibleMedia, selectedCategory]);
 
     return (
         <div 
@@ -493,7 +497,7 @@ export const Introduction: React.FC<IntroductionProps> = ({ activeModal, setActi
                 </div>
             )}
             
-            {selectedMediaIndex !== null && galleryMedia[selectedMediaIndex]?.type === 'image' && (
+            {selectedMediaIndex !== null && visibleMedia[selectedMediaIndex]?.type === 'image' && (
                 <div className="fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4 animate-fade-in" onClick={closeLightbox}>
                     <button onClick={closeLightbox} className="absolute top-4 right-4 text-white/70 hover:text-white p-2 z-10">
                         <CloseIcon className="w-8 h-8" />
@@ -505,8 +509,8 @@ export const Introduction: React.FC<IntroductionProps> = ({ activeModal, setActi
                          </button>
                         
                          <img 
-                            src={(galleryMedia[selectedMediaIndex] as GalleryImage).url} 
-                            alt={(galleryMedia[selectedMediaIndex] as GalleryImage).alt} 
+                            src={(visibleMedia[selectedMediaIndex] as GalleryImage).url} 
+                            alt={(visibleMedia[selectedMediaIndex] as GalleryImage).alt} 
                             className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg shadow-2xl"
                         />
 

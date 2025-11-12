@@ -32,6 +32,7 @@ interface BottomNavProps {
 
 export const BottomNav: React.FC<BottomNavProps> = ({ isAuthenticated, publicView, setPublicView, adminView, setAdminView, setActiveModal }) => {
   const adminNavItems = [
+    { id: 'home', label: '홈' },
     { id: 'dashboard', label: '대시보드' },
     { id: 'management', label: '주택 관리' },
     { id: 'gallery', label: '시설 사진 관리' },
@@ -50,6 +51,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({ isAuthenticated, publicVie
         ))}
       </nav>
     );
+  }
+  
+  // On the booking screen, do not show any bottom navigation.
+  if (publicView === 'booking') {
+    return null;
   }
   
   if (publicView === 'intro') {
@@ -85,14 +91,5 @@ export const BottomNav: React.FC<BottomNavProps> = ({ isAuthenticated, publicVie
       );
   }
 
-  return (
-    <nav className="fixed bottom-0 left-0 right-0 h-20 bg-white/90 backdrop-blur-sm p-3 z-40 border-t border-gray-200">
-      <button
-        onClick={() => setPublicView('booking')}
-        className="w-full h-full rounded-xl bg-primary-500 text-white font-bold text-lg shadow-lg hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all duration-200 ease-in-out transform hover:-translate-y-1"
-      >
-        예약하기
-      </button>
-    </nav>
-  );
+  return null; // Fallback, should not be reached
 };

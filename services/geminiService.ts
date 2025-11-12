@@ -21,7 +21,8 @@ export const generateWelcomeMessage = async (guestName: string, roomName: string
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
-    return response.text.trim();
+    // FIX: Use response.text directly as per Gemini API guidelines.
+    return response.text;
   } catch (error) {
     console.error("Error generating welcome message:", error);
     return `[AI 메시지 생성 실패] ${guestName}님, ${guestHouseName}에 오신 것을 환영합니다! ${roomName}에서 편안한 시간 보내시길 바랍니다.`;
@@ -34,42 +35,57 @@ export const getWeatherInfo = async (): Promise<{ seoul: { temp: number; weather
         return null;
     }
 
-    const prompt = `대한민국 서울과 멕시코 몬테레이의 현재 실시간 날씨와 섭씨 온도를 구글 검색을 통해 알려줘. 응답은 반드시 아래와 같은 JSON 형식이어야 해:
-\`\`\`json
-{
-  "seoul": {
-    "weather": "날씨 설명",
-    "temp": 25
-  },
-  "monterrey": {
-    "weather": "날씨 설명",
-    "temp": 30
-  }
-}
-\`\`\`
-날씨 설명은 '맑음', '흐림', '구름 많음', '비', '눈', '안개', '천둥번개' 중 하나로 아주 짧은 한국어 단어로 응답해줘.`;
+    const prompt = `대한민국 서울과 멕시코 몬테레이의 현재 날씨와 섭씨 온도를 알려줘. 
+    날씨 설명은 '맑음', '흐림', '구름 많음', '비', '눈', '안개', '천둥번개' 중 하나로 아주 짧은 한국어 단어로 응답해줘.`;
 
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
             config: {
-                tools: [{googleSearch: {}}],
+              // FIX: Using responseSchema for JSON output is the recommended and most reliable method.
+              // This ensures the output is always valid JSON, avoiding parsing errors.
+              // Note that using googleSearch tool is not compatible with responseSchema.
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                  seoul: {
+                    type: Type.OBJECT,
+                    properties: {
+                      temp: { type: Type.NUMBER, description: "섭씨 온도" },
+                      weather: { type: Type.STRING, description: "날씨 설명" },
+                    },
+                    required: ['temp', 'weather'],
+                  },
+                  monterrey: {
+                    type: Type.OBJECT,
+                    properties: {
+                      temp: { type: Type.NUMBER, description: "섭씨 온도" },
+                      weather: { type: Type.STRING, description: "날씨 설명" },
+                    },
+                    required: ['temp', 'weather'],
+                  },
+                },
+                required: ['seoul', 'monterrey'],
+              },
             },
         });
 
-        let jsonString = response.text.trim();
-        // Handle markdown code block if present
-        if (jsonString.startsWith('```json')) {
-            jsonString = jsonString.substring(7, jsonString.length - 3).trim();
-        } else if (jsonString.startsWith('```')) {
-             jsonString = jsonString.substring(3, jsonString.length - 3).trim();
+        // FIX: Use response.text directly as per Gemini API guidelines.
+        const jsonString = response.text;
+        const weatherData = JSON.parse(jsonString);
+        
+        // Basic validation
+        if (weatherData.seoul && typeof weatherData.seoul.temp === 'number' && weatherData.monterrey && typeof weatherData.monterrey.temp === 'number') {
+            return weatherData;
+        } else {
+            console.error("Fetched weather data has invalid format:", weatherData);
+            return null;
         }
 
-        const weatherData = JSON.parse(jsonString);
-        return weatherData;
     } catch (error) {
-        console.error("Error fetching weather info:", error);
+        console.error("Error fetching or parsing weather info:", error);
         return null;
     }
 };

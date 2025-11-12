@@ -1,9 +1,10 @@
-export type StreetName = 'Arteal' | 'Retamar' | 'Tahal' | 'Ubedas' | 'Ragol' | 'Vera' | 'PRIVADA3';
+export type StreetName = 'Arteal' | 'Retamar' | 'Tahal' | 'Ubedas' | 'Ragol' | 'Vera' | 'PRIVADA3' | 'PRIVADA6';
 export type PublicView = 'intro' | 'booking';
-export type AdminView = 'dashboard' | 'management' | 'vacantList' | 'gallery';
+export type AdminView = 'home' | 'dashboard' | 'management' | 'vacantList' | 'occupiedList' | 'gallery' | 'allHousesStatus' | 'confirmedList';
 
 export interface Guest {
   id: string;
+  bookingId?: string; // To link guest to a booking for easier deletion
   guestName: string;
   guestCompany: string;
   rentalCar: string;
@@ -13,7 +14,7 @@ export interface Guest {
 }
 
 export interface House {
-  id: string;
+  id:string;
   street: StreetName;
   number: string;
   rooms: number;
@@ -22,36 +23,48 @@ export interface House {
 }
 
 export interface Booking {
-  id: string; // Changed from number to string for Firestore ID
+  id: string; // Changed from number
   guestName: string;
   arrivalDate: string;
   departureDate: string;
-  flightTicketUrl?: string; // Changed from File to string URL
+  flightTicketUrl?: string; // Changed from File
   flightTicketName?: string;
   kakaoId: string;
   flightNumber: string;
   status: 'pending' | 'confirmed';
-  createdAt: number; // For sorting
+  numberOfGuests?: number;
+  houseId?: string;
+  houseInfo?: { street: StreetName, number: string };
 }
 
 export type GalleryCategory = 'guesthouse' | 'restaurant';
 
-export interface GalleryImage {
+export type GalleryImage = {
   id: string;
   type: 'image';
   url: string;
+  filePath?: string; // Add this line for stable deletes
   alt: string;
   category: GalleryCategory;
-  order: number;
-}
+  order: number; // Added for sorting
+  isVisible?: boolean;
+};
 
-export interface GalleryVideo {
+export type GalleryVideo = {
   id: string;
   type: 'video';
   youtubeId: string;
   title: string;
   category: GalleryCategory;
-  order: number;
-}
+  order: number; // Added for sorting
+  isVisible?: boolean;
+};
 
 export type GalleryMediaItem = GalleryImage | GalleryVideo;
+
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'info' | 'success';
+}
