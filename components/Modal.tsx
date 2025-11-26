@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { CloseIcon } from './icons';
 
@@ -7,6 +8,7 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | 'fullscreen';
+  hideHeader?: boolean;
 }
 
 const sizeClasses = {
@@ -20,18 +22,20 @@ const sizeClasses = {
     '5xl': 'max-w-5xl',
 }
 
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'md' }) => {
+export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'md', hideHeader = false }) => {
   if (!isOpen) return null;
 
   if (size === 'fullscreen') {
     return (
       <div className="fixed inset-0 bg-white z-50 flex flex-col">
-        <div className="flex justify-between items-center p-4 border-b shrink-0">
-          <h2 className="text-xl font-bold text-gray-800">{title}</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-800 p-2 rounded-full hover:bg-gray-100 -mr-2">
-            <CloseIcon className="w-7 h-7" />
-          </button>
-        </div>
+        {!hideHeader && (
+            <div className="flex justify-between items-center p-4 border-b shrink-0">
+                <h2 className="text-xl font-bold text-gray-800">{title}</h2>
+                <button onClick={onClose} className="text-gray-500 hover:text-gray-800 p-2 rounded-full hover:bg-gray-100 -mr-2">
+                    <CloseIcon className="w-7 h-7" />
+                </button>
+            </div>
+        )}
         <div className="flex-1 overflow-y-auto bg-gray-50">
           {children}
         </div>

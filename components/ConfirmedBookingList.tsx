@@ -1,16 +1,17 @@
+
 import React, { useState } from 'react';
 import type { Booking, StreetName } from '../types';
 import { ArrowLeftIcon, CalendarIcon, UserIcon, HomeModernIcon, PaperAirplaneIcon, LinkIcon, TrashIcon } from './icons';
 
 const streetKor: Record<StreetName, string> = {
-  Arteal: "아르테알",
-  Retamar: "레타마르",
-  Tahal: "타알",
-  Ubedas: "우베다스",
-  Ragol: "라골",
-  Vera: "베라",
-  PRIVADA3: "프리바다3",
-  PRIVADA6: "프리바다6",
+  Arteal: "아르테알 (Arteal)",
+  Retamar: "레타마르 (Retamar)",
+  Tahal: "타알 (Tahal)",
+  Ubedas: "우베다스 (Ubedas)",
+  Ragol: "라골 (Ragol)",
+  Vera: "베라 (Vera)",
+  PRIVADA3: "프리바다3 (Privada 3)",
+  PRIVADA6: "프리바다6 (Privada 6)",
 };
 
 const BookingCard: React.FC<{ booking: Booking; deleteBooking: (id: string) => void; }> = ({ booking, deleteBooking }) => {
@@ -18,26 +19,50 @@ const BookingCard: React.FC<{ booking: Booking; deleteBooking: (id: string) => v
 
     const handleFlightSearch = (flightNumber: string) => {
         const url = `https://www.google.com/search?q=${encodeURIComponent(flightNumber + ' flight status')}`;
-        // A popup window is better than a new tab for this kind of quick lookup.
         const windowFeatures = 'width=800,height=600,scrollbars=yes,resizable=yes';
         window.open(url, 'flight-status-popup', windowFeatures);
     };
     
     const handleDelete = () => {
-        if (window.confirm(`'${booking.guestName}'님의 예약 정보를 정말로 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) {
+        if (window.confirm(`'${booking.guestName}'님의 예약 정보를 삭제하시겠습니까? (Eliminar reserva?)`)) {
             deleteBooking(booking.id);
         }
     };
 
     const handleCopyKakaoId = () => {
         if (!booking.kakaoId) return;
-        navigator.clipboard.writeText(booking.kakaoId).then(() => {
-            setIdCopied(true);
-            setTimeout(() => setIdCopied(false), 2000);
-        }).catch(err => {
-            console.error('Failed to copy KakaoTalk ID:', err);
-            alert('카카오톡 ID 복사에 실패했습니다.');
-        });
+        const text = booking.kakaoId;
+
+        const fallbackCopy = () => {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-9999px";
+            textArea.style.top = "0";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                setIdCopied(true);
+                setTimeout(() => setIdCopied(false), 2000);
+            } catch (err) {
+                alert('카카오톡 ID 복사에 실패했습니다.');
+            }
+            document.body.removeChild(textArea);
+        };
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+             navigator.clipboard.writeText(text).then(() => {
+                setIdCopied(true);
+                setTimeout(() => setIdCopied(false), 2000);
+            }).catch(err => {
+                console.warn('Clipboard API failed, trying fallback', err);
+                fallbackCopy();
+            });
+        } else {
+            fallbackCopy();
+        }
     };
 
     return (
@@ -45,7 +70,7 @@ const BookingCard: React.FC<{ booking: Booking; deleteBooking: (id: string) => v
             <div className="flex justify-between items-start">
                 <div>
                     <p className="font-bold text-lg text-gray-800">{booking.guestName}</p>
-                    <p className="text-sm text-gray-500">{booking.numberOfGuests}명</p>
+                    <p className="text-sm text-gray-500">{booking.numberOfGuests}명 (Personas)</p>
                 </div>
                  <div className="flex items-start gap-2">
                     {booking.houseInfo && (
@@ -82,6 +107,13 @@ const BookingCard: React.FC<{ booking: Booking; deleteBooking: (id: string) => v
                     </button>
                     {idCopied && <span className="text-xs text-primary-600 font-semibold animate-pulse">복사됨!</span>}
                 </div>
+                
+                {booking.phoneNumber && (
+                     <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">TEL</span>
+                        <span>{booking.phoneNumber}</span>
+                    </div>
+                )}
 
                 <div className="flex items-center flex-wrap gap-x-4 gap-y-1">
                     {booking.flightNumber && (
@@ -97,7 +129,7 @@ const BookingCard: React.FC<{ booking: Booking; deleteBooking: (id: string) => v
                      {booking.flightTicketUrl && (
                         <a href={booking.flightTicketUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm inline-flex items-center gap-1.5">
                             <LinkIcon className="w-4 h-4" />
-                            항공권 보기
+                            항공권 (Boleto)
                         </a>
                     )}
                 </div>
@@ -125,7 +157,7 @@ export const ConfirmedBookingList: React.FC<{
                 >
                     <ArrowLeftIcon className="w-6 h-6" />
                 </button>
-                <h2 className="text-3xl font-bold text-gray-800">확정된 예약 목록</h2>
+                <h2 className="text-3xl font-bold text-gray-800">확정된 예약 목록 (Reservas)</h2>
             </header>
             <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8">
                 {confirmedBookings.length > 0 ? (
@@ -134,7 +166,7 @@ export const ConfirmedBookingList: React.FC<{
                     </div>
                 ) : (
                     <div className="text-center py-10 bg-white rounded-lg shadow-md flex-1">
-                        <p className="text-gray-500">확정된 예약이 없습니다.</p>
+                        <p className="text-gray-500">확정된 예약이 없습니다. (Sin reservas)</p>
                     </div>
                 )}
             </div>

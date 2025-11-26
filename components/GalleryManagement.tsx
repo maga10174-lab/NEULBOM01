@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import type { GalleryMediaItem, GalleryImage, GalleryVideo, GalleryCategory } from '../types';
 import { Modal } from './Modal';
@@ -110,11 +111,11 @@ const MediaEditForm: React.FC<{
     e.preventDefault();
     setIsProcessing(true);
     try {
-        if (stagedFiles.length > 0) { // Batch image upload
+        if (stagedFiles.length > 0) { 
             await onSave({ files: stagedFiles, category: formState.category });
-        } else if (mediaItem) { // Editing existing item
+        } else if (mediaItem) { 
             await onSave({ itemId: mediaItem.id, data: formState });
-        } else { // Adding single new item (video or URL image)
+        } else { 
             await onSave({ data: formState });
         }
     } catch (error) {
@@ -135,7 +136,6 @@ const MediaEditForm: React.FC<{
       
       try {
           const fileList = Array.from(files);
-          // FIX: Explicitly type `file` as `File` to resolve ambiguity in type inference.
           const compressedFiles = await Promise.all(
               fileList.map((file: File) => compressImage(file))
           );
@@ -168,17 +168,17 @@ const MediaEditForm: React.FC<{
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
-        <label htmlFor="category" className="block text-base font-medium text-gray-700 mb-2">카테고리</label>
+        <label htmlFor="category" className="block text-base font-medium text-gray-700 mb-2">카테고리 (Categoría)</label>
         <select id="category" name="category" value={formState.category} onChange={handleChange} className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 p-3 text-base">
-          <option value="guesthouse">게스트 하우스</option>
-          <option value="restaurant">늘봄 식당</option>
+          <option value="guesthouse">게스트 하우스 (Guesthouse)</option>
+          <option value="restaurant">늘봄 식당 (Restaurante)</option>
         </select>
       </div>
       <div>
-        <label htmlFor="type" className="block text-base font-medium text-gray-700 mb-2">종류</label>
+        <label htmlFor="type" className="block text-base font-medium text-gray-700 mb-2">종류 (Tipo)</label>
         <select id="type" name="type" value={formState.type} onChange={handleChange} className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 p-3 text-base" disabled={!!mediaItem || stagedFiles.length > 0}>
-          <option value="image">이미지</option>
-          <option value="video">비디오 (유튜브)</option>
+          <option value="image">이미지 (Foto)</option>
+          <option value="video">비디오 (Youtube)</option>
         </select>
       </div>
 
@@ -189,10 +189,10 @@ const MediaEditForm: React.FC<{
               <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
               <div className="grid grid-cols-2 gap-3">
                 <button type="button" disabled={isCompressing} onClick={() => triggerFileInput('file')} className="flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white py-3 px-4 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:bg-gray-200 disabled:cursor-not-allowed">
-                  <ArrowUpTrayIcon className="w-5 h-5"/> <span>{isCompressing ? '압축 중...' : '파일 업로드'}</span>
+                  <ArrowUpTrayIcon className="w-5 h-5"/> <span>{isCompressing ? '압축 중 (Comprimiendo)' : '업로드 (Subir)'}</span>
                 </button>
                 <button type="button" disabled={isCompressing} onClick={() => triggerFileInput('camera')} className="flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white py-3 px-4 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:bg-gray-200 disabled:cursor-not-allowed">
-                  <CameraIcon className="w-5 h-5"/> <span>카메라 촬영</span>
+                  <CameraIcon className="w-5 h-5"/> <span>촬영 (Cámara)</span>
                 </button>
               </div>
             </>
@@ -213,7 +213,7 @@ const MediaEditForm: React.FC<{
               <>
                 <img src={formState.url} alt="미리보기" className="mt-1 w-full h-auto max-h-48 object-contain rounded-md border" />
                 <div>
-                    <label htmlFor="alt" className="block text-base font-medium text-gray-700 mb-2">대체 텍스트 (설명)</label>
+                    <label htmlFor="alt" className="block text-base font-medium text-gray-700 mb-2">설명 (Descripción)</label>
                     <input type="text" name="alt" id="alt" value={formState.alt} onChange={handleChange} className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 p-3 text-base" required />
                 </div>
               </>
@@ -223,20 +223,20 @@ const MediaEditForm: React.FC<{
       ) : (
         <>
           <div>
-            <label htmlFor="youtubeId" className="block text-base font-medium text-gray-700 mb-2">유튜브 비디오 ID</label>
-            <input type="text" name="youtubeId" id="youtubeId" value={formState.youtubeId} onChange={handleChange} className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 p-3 text-base" placeholder="LXb3EKWsInQ" required />
+            <label htmlFor="youtubeId" className="block text-base font-medium text-gray-700 mb-2">Youtube ID</label>
+            <input type="text" name="youtubeId" id="youtubeId" value={formState.youtubeId} onChange={handleChange} className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 p-3 text-base" placeholder="예: LXb3EKWsInQ" required />
           </div>
           <div>
-            <label htmlFor="title" className="block text-base font-medium text-gray-700 mb-2">비디오 제목</label>
+            <label htmlFor="title" className="block text-base font-medium text-gray-700 mb-2">제목 (Título)</label>
             <input type="text" name="title" id="title" value={formState.title} onChange={handleChange} className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 p-3 text-base" required />
           </div>
         </>
       )}
 
       <div className="flex justify-end gap-3 pt-6 border-t mt-4">
-        <button type="button" onClick={onCancel} className="rounded-lg border border-gray-300 bg-white py-3 px-6 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50">취소</button>
+        <button type="button" onClick={onCancel} className="rounded-lg border border-gray-300 bg-white py-3 px-6 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50">취소 (Cancelar)</button>
         <button type="submit" disabled={isProcessing || isCompressing} className="rounded-lg border border-transparent bg-primary-600 py-3 px-6 text-base font-medium text-white shadow-sm hover:bg-primary-700 disabled:bg-gray-400">
-            {isProcessing ? '저장 중...' : (isCompressing ? '압축 중...' : '저장')}
+            {isProcessing ? '저장 중...' : (isCompressing ? '압축 중...' : '저장 (Guardar)')}
         </button>
       </div>
     </form>
@@ -310,21 +310,35 @@ export const GalleryManagement: React.FC<{
   updateGalleryMediaItem: (itemId: string, data: Partial<GalleryMediaItem>) => Promise<void>;
   deleteGalleryMediaItems: (itemIds: string[]) => Promise<void>;
   reorderGalleryMedia: (orderedMedia: GalleryMediaItem[]) => Promise<void>;
-}> = ({ galleryMedia, addGalleryMediaItems, addGalleryVideoItem, updateGalleryMediaItem, deleteGalleryMediaItems }) => {
+  registerBackHandler?: (handler: () => boolean) => void;
+  unregisterBackHandler?: () => void;
+}> = ({ galleryMedia, addGalleryMediaItems, addGalleryVideoItem, updateGalleryMediaItem, deleteGalleryMediaItems, registerBackHandler, unregisterBackHandler }) => {
   const [editingItem, setEditingItem] = useState<GalleryMediaItem | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+
+  // Handle Back Button for Modal
+  useEffect(() => {
+    if (isAddingNew && registerBackHandler) {
+        registerBackHandler(() => {
+            handleCloseModal();
+            return true;
+        });
+    } else if (unregisterBackHandler) {
+        unregisterBackHandler();
+    }
+  }, [isAddingNew, registerBackHandler, unregisterBackHandler]);
   
   const handleSave = async (payload: any) => {
-    if (payload.files) { // Batch image add
+    if (payload.files) { 
         await addGalleryMediaItems(payload.files, payload.category);
-    } else if (payload.itemId) { // Editing
+    } else if (payload.itemId) { 
         const { itemId, data } = payload;
         const updateData = data.type === 'image'
             ? { alt: data.alt, category: data.category }
             : { title: data.title, youtubeId: data.youtubeId, category: data.category };
         await updateGalleryMediaItem(itemId, updateData);
-    } else { // Adding single non-file item
+    } else { 
         const { data } = payload;
         if(data.type === 'video') {
             await addGalleryVideoItem({title: data.title, youtubeId: data.youtubeId, category: data.category});
@@ -386,10 +400,10 @@ export const GalleryManagement: React.FC<{
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
             <PhotoIcon className="w-8 h-8 text-primary-600"/>
-            시설 사진/비디오 관리
+            사진/비디오 관리 (Galería)
         </h2>
         <button onClick={handleAddNew} className="rounded-lg bg-primary-600 py-3 px-5 text-base font-medium text-white shadow-sm hover:bg-primary-700">
-          + 새 항목 추가
+          + 추가 (Agregar)
         </button>
       </div>
 
@@ -397,11 +411,11 @@ export const GalleryManagement: React.FC<{
         <div className="flex items-center justify-between border-b pb-4 mb-4">
             <div className="flex items-center">
                 <input type="checkbox" onChange={handleSelectAll} checked={galleryMedia.length > 0 && selectedItems.size === galleryMedia.length} disabled={galleryMedia.length === 0} className="h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
-                <label className="ml-3 text-base font-medium text-gray-700">{selectedItems.size > 0 ? `${selectedItems.size}개 선택됨` : '모두 선택'}</label>
+                <label className="ml-3 text-base font-medium text-gray-700">{selectedItems.size > 0 ? `${selectedItems.size}개 선택 (Seleccionado)` : '모두 선택 (Todos)'}</label>
             </div>
             {selectedItems.size > 0 && (
                 <button onClick={handleDeleteSelected} className="flex items-center gap-1.5 text-base font-medium text-white bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition-colors">
-                    <TrashIcon className="w-5 h-5" /> <span>선택 삭제</span>
+                    <TrashIcon className="w-5 h-5" /> <span>삭제 (Eliminar)</span>
                 </button>
             )}
         </div>
@@ -427,7 +441,7 @@ export const GalleryManagement: React.FC<{
         )}
       </div>
 
-      <Modal isOpen={isAddingNew} onClose={handleCloseModal} title={editingItem ? "미디어 수정" : "새 미디어 추가"} size="lg">
+      <Modal isOpen={isAddingNew} onClose={handleCloseModal} title={editingItem ? "미디어 수정 (Editar)" : "새 미디어 추가 (Agregar)"} size="lg">
         <MediaEditForm mediaItem={editingItem || undefined} onSave={handleSave} onCancel={handleCloseModal} />
       </Modal>
     </div>
