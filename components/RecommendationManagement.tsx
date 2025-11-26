@@ -1,26 +1,28 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import type { RecommendationItem, RecommendationCategory } from '../types';
+import type { RecommendationItem, RecommendationCategory, RecommendationCategoryConfig } from '../types';
 import { Modal } from './Modal';
-import { PencilIcon, TrashIcon, ArrowLeftIcon, CameraIcon, PhotoIcon, ArrowUpTrayIcon, LinkIcon } from './icons';
+import { PencilIcon, TrashIcon, ArrowLeftIcon, CameraIcon, PhotoIcon, ArrowUpTrayIcon, LinkIcon, AdjustmentsHorizontalIcon, HomeModernIcon, FireIcon, BuildingStorefrontIcon } from './icons';
 
 interface RecommendationManagementProps {
     recommendations: RecommendationItem[];
+    categoryConfigs?: RecommendationCategoryConfig[];
     addRecommendation: (item: Omit<RecommendationItem, 'id' | 'imageUrl' | 'imagePath'>, imageFile?: File, imageUrlStr?: string) => Promise<void>;
     updateRecommendation: (id: string, data: Partial<Omit<RecommendationItem, 'id'>>, imageFile?: File) => Promise<void>;
     deleteRecommendation: (id: string) => Promise<void>;
     removeDuplicates: () => Promise<void>;
     cleanupDefaultData: () => Promise<void>;
+    updateCategoryConfig?: (id: RecommendationCategory, data: Partial<RecommendationCategoryConfig>, imageFile?: File) => Promise<void>;
     onBack: () => void;
     registerBackHandler?: (handler: () => boolean) => void;
     unregisterBackHandler?: () => void;
 }
 
-const categories: { id: RecommendationCategory; label: string }[] = [
-    { id: 'korean', label: '한인 편의시설 & 맛집 (Coreano)' },
-    { id: 'food', label: '로컬 맛집 탐방 (Restaurantes Locales)' },
-    { id: 'shopping', label: '쇼핑 및 여가 (Compras)' },
-    { id: 'tour', label: '관광 명소 (Turismo)' },
+const categories: { id: RecommendationCategory; label: string; icon: any }[] = [
+    { id: 'korean', label: '한인 편의시설 & 맛집', icon: HomeModernIcon },
+    { id: 'food', label: '로컬 맛집 탐방', icon: FireIcon },
+    { id: 'shopping', label: '쇼핑 및 여가', icon: BuildingStorefrontIcon },
+    { id: 'tour', label: '관광 명소', icon: CameraIcon },
 ];
 
 const positionOptions: { value: string; label: string }[] = [
@@ -235,6 +237,142 @@ const RecommendationFormModal: React.FC<{
     );
 }
 
+const CategoryConfigModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    config?: RecommendationCategoryConfig;
+    category: { id: RecommendationCategory; label: string };
+    onSave: (id: RecommendationCategory, data: Partial<RecommendationCategoryConfig>, imageFile?: File) => Promise<void>;
+}> = ({ isOpen, onClose, config, category, onSave }) => {
+    const [title, setTitle] = useState(config?.title || category.label);
+    const [sub, setSub] = useState(config?.sub || '');
+    const [imageSource, setImageSource] = useState<'file' | 'url'>('file');
+    const [imageUrlStr, setImageUrlStr] = useState('');
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string | null>(config?.imageUrl || null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (isOpen) {
+            setTitle(config?.title || category.label);
+            setSub(config?.sub || '');
+            setImagePreview(config?.imageUrl || null);
+            setImageUrlStr(config?.imageUrl || '');
+            
+            // If existing URL is a firebase storage URL (simplified check), assume file mode initially, 
+            // but for user convenience in editing, starting with 'url' mode if they want to replace it with external URL is fine.
+            // However, sticking to 'file' as default is safer unless we detect it's an external URL.
+            // Let's default to 'file' to encourage uploads, but if they want to change to URL, they can click radio.
+            setImageSource('file');
+            setImageFile(null);
+        }
+    }, [isOpen, config, category]);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setImageFile(file);
+            setImagePreview(URL.createObjectURL(file));
+        }
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+        try {
+            // Prepare update data
+            const updates: any = { title, sub };
+            
+            // If URL mode, set imageUrl explicitly
+            if (imageSource === 'url') {
+                updates.imageUrl = imageUrlStr;
+            }
+
+            // If file mode, imageFile will be passed (if selected)
+            // If file mode but no file selected (and no change), updates doesn't have imageUrl, so it keeps old one.
+            // The onSave logic handles cleanup.
+            
+            await onSave(category.id, updates, (imageSource === 'file' && imageFile) ? imageFile : undefined);
+            onClose();
+        } catch (error) {
+            console.error(error);
+            alert("저장 실패");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title={`'${category.label}' 커버 설정`} size="md">
+            <form onSubmit={handleSubmit} className="space-y-4">
+                 <div className="w-full aspect-video bg-gray-100 rounded-md border flex items-center justify-center overflow-hidden relative mb-4">
+                    {imagePreview || (imageSource === 'url' && imageUrlStr) ? (
+                        <img 
+                            src={imageSource === 'file' ? imagePreview! : imageUrlStr} 
+                            alt="Cover Preview" 
+                            className="w-full h-full object-cover" 
+                            onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/300?text=No+Image')}
+                        />
+                    ) : (
+                        <div className="text-gray-400 flex flex-col items-center">
+                            <PhotoIcon className="w-10 h-10 mb-1" />
+                            <span className="text-xs">이미지 없음</span>
+                        </div>
+                    )}
+                </div>
+                
+                <div>
+                     <label className="block text-sm font-medium text-gray-700 mb-1">이미지 소스 (Fuente de imagen)</label>
+                     <div className="flex gap-4 mb-2">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="coverImgSrc" checked={imageSource === 'file'} onChange={() => setImageSource('file')} className="text-primary-600 focus:ring-primary-500" />
+                            <span className="text-sm">파일 업로드 (Subir)</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="coverImgSrc" checked={imageSource === 'url'} onChange={() => setImageSource('url')} className="text-primary-600 focus:ring-primary-500" />
+                            <span className="text-sm">URL 입력 (Enlace)</span>
+                        </label>
+                    </div>
+
+                     {imageSource === 'file' ? (
+                         <>
+                            <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+                            <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white py-2 px-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">
+                                <ArrowUpTrayIcon className="w-5 h-5"/> <span>이미지 파일 선택 (Seleccionar Archivo)</span>
+                            </button>
+                         </>
+                     ) : (
+                         <input 
+                            type="text" 
+                            value={imageUrlStr} 
+                            onChange={(e) => setImageUrlStr(e.target.value)} 
+                            placeholder="https://example.com/image.jpg"
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 p-2 text-sm" 
+                         />
+                     )}
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">메뉴 제목 (Título)</label>
+                    <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 p-2 text-sm" />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">부제목 (Subtítulo)</label>
+                    <input type="text" value={sub} onChange={(e) => setSub(e.target.value)} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 p-2 text-sm" />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t mt-4">
+                    <button type="button" onClick={onClose} className="rounded-lg border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">취소</button>
+                    <button type="submit" disabled={isSubmitting} className="rounded-lg border border-transparent bg-primary-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-primary-700 disabled:bg-gray-400">
+                        {isSubmitting ? '저장 중...' : '저장 (Guardar)'}
+                    </button>
+                </div>
+            </form>
+        </Modal>
+    );
+};
+
 export const RecommendationManagement: React.FC<RecommendationManagementProps> = ({ 
     recommendations, 
     addRecommendation, 
@@ -242,6 +380,8 @@ export const RecommendationManagement: React.FC<RecommendationManagementProps> =
     deleteRecommendation, 
     removeDuplicates,
     cleanupDefaultData,
+    updateCategoryConfig,
+    categoryConfigs,
     onBack,
     registerBackHandler,
     unregisterBackHandler
@@ -249,17 +389,33 @@ export const RecommendationManagement: React.FC<RecommendationManagementProps> =
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [itemToEdit, setItemToEdit] = useState<RecommendationItem | null>(null);
     const [filterCategory, setFilterCategory] = useState<RecommendationCategory | 'all'>('all');
+    
+    // Category Config State
+    const [isCategoryMode, setIsCategoryMode] = useState(false);
+    const [configModalOpen, setConfigModalOpen] = useState(false);
+    const [categoryToConfig, setCategoryToConfig] = useState<{ id: RecommendationCategory; label: string } | null>(null);
 
     useEffect(() => {
-        if (isModalOpen && registerBackHandler) {
+        if ((isModalOpen || configModalOpen || isCategoryMode) && registerBackHandler) {
             registerBackHandler(() => {
-                handleCloseModal();
-                return true;
+                if (configModalOpen) {
+                    setConfigModalOpen(false);
+                    return true;
+                }
+                if (isModalOpen) {
+                    handleCloseModal();
+                    return true;
+                }
+                if (isCategoryMode) {
+                    setIsCategoryMode(false);
+                    return true;
+                }
+                return false;
             });
         } else if (unregisterBackHandler) {
             unregisterBackHandler();
         }
-    }, [isModalOpen, registerBackHandler, unregisterBackHandler]);
+    }, [isModalOpen, configModalOpen, isCategoryMode, registerBackHandler, unregisterBackHandler]);
 
     const handleAddNew = () => {
         setItemToEdit(null);
@@ -311,6 +467,71 @@ export const RecommendationManagement: React.FC<RecommendationManagementProps> =
         ? recommendations 
         : recommendations.filter(r => r.category === filterCategory);
 
+    const handleOpenCategoryConfig = (cat: { id: RecommendationCategory; label: string }) => {
+        setCategoryToConfig(cat);
+        setConfigModalOpen(true);
+    };
+    
+    const handleSaveCategoryConfig = async (id: RecommendationCategory, data: any, file?: File) => {
+        if (updateCategoryConfig) {
+            await updateCategoryConfig(id, data, file);
+        }
+    };
+
+    if (isCategoryMode) {
+        return (
+            <div className="h-full flex flex-col bg-gray-50">
+                <header className="flex items-center gap-4 px-4 sm:px-6 py-4 border-b bg-white flex-shrink-0">
+                    <button onClick={() => setIsCategoryMode(false)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500 hover:text-gray-800">
+                        <ArrowLeftIcon className="w-6 h-6" />
+                    </button>
+                    <h2 className="text-2xl font-bold text-gray-800">메뉴 커버 설정 (Configuración de Menú)</h2>
+                </header>
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        {categories.map(cat => {
+                            const config = categoryConfigs?.find(c => c.id === cat.id);
+                            return (
+                                <div key={cat.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden group">
+                                    <div className="aspect-video bg-gray-100 relative">
+                                         {config?.imageUrl ? (
+                                            <img src={config.imageUrl} alt={cat.label} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                                <PhotoIcon className="w-12 h-12" />
+                                            </div>
+                                        )}
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <button 
+                                                onClick={() => handleOpenCategoryConfig(cat)}
+                                                className="bg-white text-gray-800 px-4 py-2 rounded-lg font-bold shadow-lg hover:bg-gray-100 flex items-center gap-2"
+                                            >
+                                                <PencilIcon className="w-5 h-5" /> 수정
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="p-4">
+                                        <h3 className="font-bold text-lg text-gray-900">{config?.title || cat.label}</h3>
+                                        <p className="text-gray-500 text-sm">{config?.sub || '(부제목 없음)'}</p>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+                {categoryToConfig && (
+                    <CategoryConfigModal 
+                        isOpen={configModalOpen}
+                        onClose={() => setConfigModalOpen(false)}
+                        category={categoryToConfig}
+                        config={categoryConfigs?.find(c => c.id === categoryToConfig.id)}
+                        onSave={handleSaveCategoryConfig}
+                    />
+                )}
+            </div>
+        );
+    }
+
     return (
         <div className="h-full flex flex-col bg-gray-50">
             <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-4 sm:px-6 py-4 border-b bg-white flex-shrink-0">
@@ -321,13 +542,12 @@ export const RecommendationManagement: React.FC<RecommendationManagementProps> =
                     <h2 className="text-2xl font-bold text-gray-800">추천 장소 관리 (Recomendaciones)</h2>
                 </div>
                 <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                     <button
-                        onClick={handleCleanupDefaults}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 shadow-sm text-sm font-medium transition-colors"
-                        title="기본 제공 데이터만 삭제합니다."
-                    >
-                        기본 데이터 삭제
-                    </button>
+                    <button
+                         onClick={() => setIsCategoryMode(true)}
+                         className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-sm text-sm font-medium transition-colors"
+                     >
+                         <AdjustmentsHorizontalIcon className="w-4 h-4"/> 메뉴 설정
+                     </button>
                     <button
                         onClick={handleRemoveDuplicates}
                         className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 shadow-sm text-sm font-medium transition-colors"

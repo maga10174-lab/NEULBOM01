@@ -603,6 +603,7 @@ const HouseCard: React.FC<{ house: House; onEdit: (house: House) => void; }> = (
     let statusText: string;
 
     const totalCurrentGuests = currentGuests.reduce((sum, g) => sum + Number(g.numberOfGuests), 0);
+    const totalPendingGuests = pendingGuests.reduce((sum, g) => sum + Number(g.numberOfGuests), 0);
     
     if (currentGuests.length > 0) {
         status = 'occupied';
@@ -610,7 +611,7 @@ const HouseCard: React.FC<{ house: House; onEdit: (house: House) => void; }> = (
     } else if (pendingGuests.length > 0) {
         status = 'reserved';
         const nextCheckIn = pendingGuests[0].checkInDate.slice(5).replace('-', '/');
-        statusText = `입실 예정 (${nextCheckIn})`;
+        statusText = `입실 예정 (${nextCheckIn}) - ${totalPendingGuests}명`;
     } else {
         status = 'vacant';
         statusText = '공실 (Vacío)';
@@ -681,7 +682,7 @@ const HouseCard: React.FC<{ house: House; onEdit: (house: House) => void; }> = (
                         </span>
                         {status === 'occupied' && pendingGuests.length > 0 && (
                              <span className="px-3 py-1 text-[10px] sm:text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200 animate-pulse">
-                                + 예약 대기 ({pendingGuests.length})
+                                + 예약 대기 ({totalPendingGuests}명)
                             </span>
                         )}
                     </div>
@@ -869,6 +870,9 @@ export const Management: React.FC<{
                 const pendingGuests = house.guests.filter(g => !g.isCheckedIn && g.checkOutDate >= todayStr);
                 const hasPending = pendingGuests.length > 0;
                 
+                // Calculate total pending guests
+                const totalPendingGuests = pendingGuests.reduce((sum, g) => sum + Number(g.numberOfGuests), 0);
+
                 const hasScheduled = house.guests.some(g => !!g.scheduledCheckoutTime);
                 const earliestCheckout = house.guests
                     .filter(g => g.scheduledCheckoutTime)
@@ -965,13 +969,13 @@ export const Management: React.FC<{
                                     <>
                                         <UserIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                                         <span>{totalCurrentGuests}명</span>
-                                        {hasPending && <span className="text-[9px] sm:text-[10px] bg-indigo-500 text-white px-1 py-0.5 rounded ml-1 font-bold shadow-sm animate-pulse">+예약</span>}
+                                        {hasPending && <span className="text-[9px] sm:text-[10px] bg-indigo-500 text-white px-1 py-0.5 rounded ml-1 font-bold shadow-sm animate-pulse">+{totalPendingGuests}명 예약</span>}
                                     </>
                                 ) : displayStatus === 'reserved' ? (
                                     (() => {
                                         const nextGuest = pendingGuests.sort((a,b) => a.checkInDate.localeCompare(b.checkInDate))[0];
                                         const nextDate = nextGuest ? nextGuest.checkInDate.slice(5).replace('-', '/') : '';
-                                        return <span className="text-[10px] sm:text-xs font-bold text-indigo-100">입실 예정 ({nextDate})</span>;
+                                        return <span className="text-[10px] sm:text-xs font-bold text-indigo-100">예약 {totalPendingGuests}명 ({nextDate})</span>;
                                     })()
                                 ) : (
                                     <span className="text-[10px] sm:text-xs">공실</span>

@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
-import type { Booking, House, AdminView, StreetName, Guest, Car } from '../types';
+import type { Booking, House, AdminView, StreetName, Guest, Car, RecommendationItem, RecommendationCategoryConfig, RecommendationCategory } from '../types';
 import { BellIcon, CheckCircleIcon, PaperAirplaneIcon, TrashIcon, UserIcon, CarIcon, BuildingIcon, CalendarIcon, HomeIcon, HomeModernIcon, BoltIcon, SparkleIcon, ArrowLeftIcon, AdjustmentsHorizontalIcon } from './icons';
 import { Modal } from './Modal';
 import type { User } from 'firebase/auth';

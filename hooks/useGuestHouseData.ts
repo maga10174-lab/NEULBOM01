@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef } from 'react';
-import type { House, Booking, Guest, GalleryMediaItem, GalleryCategory, GalleryImage, GalleryVideo, StreetName, Car, RecommendationItem } from '../types';
+import type { House, Booking, Guest, GalleryMediaItem, GalleryCategory, GalleryImage, GalleryVideo, StreetName, Car, RecommendationItem, RecommendationCategoryConfig, RecommendationCategory } from '../types';
 import { db, storage, auth } from '../services/firebase'; // Import central auth instance
 import {
   collection,
@@ -46,50 +46,7 @@ const defaultHouses: Omit<House, 'id'>[] = [
     { street: 'PRIVADA6', number: '415', rooms: 3, capacity: 5, guests: [], utilities: { gas: '239231', water: '611850301', electricity: '420200405098' }, houseType: 'guesthouse' },
 ];
 
-// Renamed to 'legacy' to avoid auto-using them, but kept for cleanup reference.
-const legacyDefaultRecommendations: Omit<RecommendationItem, 'id'>[] = [
-    { category: 'korean', name: "민속촌 (Minsokchon)", description: "몬테레이 대표 한식당. 삼겹살, 갈비 등 숯불구이와 다양한 한식 메뉴를 즐길 수 있습니다.", tags: ["Korean BBQ", "Apodaca", "한식"], imageUrl: "https://pdbig.com/files/attach/images/2021/09/18/ed6d9d0aa9bb816739a3ce30e1c56fce.jpg", mapUrl: "https://www.google.com/search?q=Restaurante+Minsokchon+Monterrey" },
-    { category: 'korean', name: "명가 (Myungga)", description: "정갈한 반찬과 깊은 맛의 찌개류가 일품인 한식 맛집. 가족 식사 장소로 추천합니다.", tags: ["Traditional", "Stew", "Banchan"], imageUrl: "https://images.unsplash.com/photo-1580651315530-69c8e0026377?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Restaurante+Myungga+Monterrey" },
-    { category: 'korean', name: "골목식당 (Golmok Sikdang)", description: "다양한 찌개류와 덮밥 등 가정식 백반을 즐길 수 있는 편안한 분위기의 한식당입니다.", tags: ["Korean Food", "Home Style", "Apodaca"], imageUrl: "https://images.unsplash.com/photo-1553163147-622ab57be1c7?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Restaurante+Golmok+Sikdang+Monterrey" },
-    { category: 'korean', name: "작살치킨 (Jaksal Chicken)", description: "바삭한 한국식 치킨과 맥주를 즐길 수 있는 곳. 야식이나 가벼운 모임에 제격입니다.", tags: ["Chicken", "Beer", "K-Food"], imageUrl: "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Jaksal+Chicken+Monterrey" },
-    { category: 'korean', name: "꼬꼬리꼬 (Kkokko Rico)", description: "바삭하고 다양한 맛의 한국식 치킨 전문점입니다. 양념치킨과 간장치킨이 인기입니다. (배달 가능)", tags: ["Fried Chicken", "Spicy", "Delivery"], imageUrl: "https://images.unsplash.com/photo-1569058242253-92a9c755a0ec?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/maps/search/?api=1&query=Kkokko+Rico+Monterrey" },
-    { category: 'korean', name: "갈비스 (Galbi's)", description: "깔끔한 인테리어와 퀄리티 높은 고기를 제공하는 프리미엄 한식 바베큐 레스토랑입니다.", tags: ["Premium BBQ", "Galbi", "Dining"], imageUrl: "https://lh3.googleusercontent.com/gps-cs-s/AG0ilSwHlvXUWkiQme35khJAqYUWDoEziLPoTGpr9OzJkRNy7elPUOyw5oYDMLmAhexYUBCxktB-PAJpnBKxiTZ4S49dHHkJ_Odr4CjjF3P8KZerPrnxQMd0_uTd-NsYLW0zPoqkWqJG=s680-w680-h510-rw", mapUrl: "https://www.google.com/search?q=Galbi's+Monterrey" },
-    { category: 'korean', name: "중국성 (Jung Guk Seong)", description: "아포다카에 위치한 한국식 중화요리 전문점. 짜장면, 짬뽕, 탕수육 세트 메뉴가 인기입니다.", tags: ["Jjajangmyeon", "Chinese", "Noodles"], imageUrl: "https://images.unsplash.com/photo-1552611052-33e04de081de?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/maps/search/?api=1&query=Restaurante+Jung+Guk+Seong+Monterrey" },
-    { category: 'korean', name: "이자카야 한 (Izakaya Han)", description: "다양한 안주와 주류를 즐길 수 있는 퓨전 이자카야. 퇴근 후 술 한잔하기 좋은 분위기입니다.", tags: ["Izakaya", "Sake", "Fusion"], imageUrl: "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Izakaya+Han+Monterrey" },
-    { category: 'korean', name: "Won Korean BBQ", description: "프리미엄 숯불구이 전문점. 고급스러운 분위기에서 최상급 고기를 즐길 수 있습니다.", tags: ["Premium BBQ", "Charcoal", "Beef"], imageUrl: "https://images.unsplash.com/photo-1529193591184-b1d580690dd0?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Won+Korean+BBQ+Monterrey" },
-    { category: 'korean', name: "비원 (Biwon)", description: "조용한 분위기의 전통 한식당. 손님 접대나 조용한 식사를 원하실 때 추천합니다.", tags: ["Traditional", "Private", "Quiet"], imageUrl: "https://images.unsplash.com/photo-1604579278540-2872e3b55cc2?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Restaurante+Biwon+Monterrey" },
-    { category: 'korean', name: "서울 식당 (Seoul)", description: "가성비 좋은 점심 특선과 다양한 한식 메뉴를 갖춘 편안한 식당입니다.", tags: ["Lunch Special", "Casual", "Variety"], imageUrl: "https://images.unsplash.com/photo-1563245372-f21720e32c4d?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Restaurante+Seoul+Monterrey" },
-    { category: 'korean', name: "오마트 (O Mart)", description: "다양한 한국 식료품과 생필품을 구매할 수 있는 대형 한인 마트입니다.", tags: ["Grocery", "Korean Market", "Snacks"], imageUrl: "https://mblogthumb-phinf.pstatic.net/MjAxOTEyMDFfMjMz/MDAxNTc1MTM4NjY1OTU1.ToRuXMohAGM1G8dgXdDs5HN1L-XmLr5hc2iqbNiuuKAg.kb76VZU5GEY00gmg5n7POmGsqocntDgIPvQ2RTdHKnUg.JPEG.canadastudy7/1575138663051.jpg?type=w800", mapUrl: "https://www.google.com/search?q=O+Mart+Monterrey", imagePosition: 'object-top' },
-    { category: 'korean', name: "M-MART", description: "다양한 한국 식재료와 신선한 정육, 반찬류를 판매하는 한인 마트입니다.", tags: ["Grocery", "Butcher", "Vegetables"], imageUrl: "https://lh3.googleusercontent.com/gps-cs-s/AG0ilSz6NyYCkvbKJ0gVCUfq_7JVjMdnsYUVoyO8No04S81nrWK1nlAChO2DQiFOIy2lmi4Isx187Zw1kRNy7elPUOyw5oYDMLmAhexYUBCxktB-PAJpnBKxiTZ4S49dHHkJ_Odr4CjjF3P8KZerPrnxQMd0_uTd-NsYLW0zPoqkWqJG=s680-w680-h980-n-k-no-nu", mapUrl: "https://www.google.com/search?q=M-MART+Monterrey", imagePosition: 'object-top' },
-    { category: 'food', name: "El Gran Pastor", description: "몬테레이 전통 요리인 '카브리토(새끼 염소 구이)'를 맛볼 수 있는 가장 유명한 식당입니다.", tags: ["Cabrito", "Traditional", "Must-Visit"], imageUrl: "https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=El+Gran+Pastor+Monterrey" },
-    { category: 'food', name: "La Nacional", description: "고급스러운 분위기에서 최상급 립아이 스테이크와 멕시코 전통 요리를 즐길 수 있습니다.", tags: ["Steakhouse", "Fine Dining", "Wine"], imageUrl: "https://lh3.googleusercontent.com/gps-cs-s/AG0ilSxiiDTLyHh2lsZoz5Wum67WlMTvwblmerbf0X08AQlCJPTsATkbnPrjWHUaofic5uuz3C91e_3FKhWdW01SWLqedv7TYpngFxZaj97QOtMnregIGzqsd3XX0ZxRTJ6fVmjviHcG=s680-w680-h510-rw", mapUrl: "https://www.google.com/search?q=La+Nacional+Monterrey" },
-    { category: 'food', name: "Los Arcos", description: "신선한 해산물 요리로 유명한 멕시코 대표 레스토랑 체인. 새우 요리와 타코가 일품입니다.", tags: ["Seafood", "Mariscos", "Casual"], imageUrl: "https://images.unsplash.com/photo-1534080564583-6be75777b70a?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Los+Arcos+Monterrey" },
-    { category: 'food', name: "Sonora Grill Prime", description: "세련된 분위기의 스테이크 하우스. DJ 음악과 함께 트렌디한 식사를 즐길 수 있습니다.", tags: ["Steak", "Trendy", "Bar"], imageUrl: "https://lh3.googleusercontent.com/p/AF1QipPhZuMfzutIb5Kv-flNbgnu4f1EmCNWRLo26Wtk=s680-w680-h510-rw", mapUrl: "https://www.google.com/search?q=Sonora+Grill+Prime+Monterrey" },
-    { category: 'food', name: "El Rey del Cabrito", description: "몬테레이의 상징적인 카브리토 맛집. 현지 분위기를 제대로 느낄 수 있는 곳입니다.", tags: ["Cabrito", "History", "Local"], imageUrl: "https://images.unsplash.com/photo-1560781290-7dc94c0f8f4f?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=El+Rey+del+Cabrito" },
-    { category: 'food', name: "Mochomos Monterrey", description: "소노라 스타일의 고급 요리와 칵테일. 새우 부뉴엘로(Buñuelos de Camarón)가 시그니처 메뉴입니다. 화려한 분위기를 즐겨보세요.", tags: ["Fine Dining", "Sonora Style", "Hotspot"], imageUrl: "https://costeno.com/wp-content/uploads/2022/10/A4B0242-1653x823.jpg", mapUrl: "https://www.google.com/search?q=Mochomos+Monterrey" },
-    { category: 'food', name: "Tacos Orinoco", description: "북부 스타일의 치차론 타코가 유명한 힙한 타코 가게. 늦은 시간까지 운영합니다.", tags: ["Tacos", "Street Food", "Famous"], imageUrl: "https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Tacos+Orinoco+Monterrey" },
-    { category: 'food', name: "Gallo 71", description: "산 페드로 지역의 핫플레이스. 훌륭한 타코와 스테이크, 활기찬 분위기를 자랑합니다.", tags: ["Hotspot", "Vibrant", "Grill"], imageUrl: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Gallo+71+Monterrey" },
-    { category: 'food', name: "Casa Prime", description: "최상급 스테이크와 와인, 그리고 훌륭한 분위기를 즐길 수 있는 프리미엄 레스토랑입니다.", tags: ["Steakhouse", "Premium", "Wine"], imageUrl: "https://images.unsplash.com/photo-1559339352-11d035aa65de?q=80&w=800&auto=format&fit=crop", mapUrl: "https://maps.app.goo.gl/3WHTTNi18xMiTyEK7" },
-    { category: 'food', name: "La Casa Grande", description: "전통적인 멕시코 분위기와 역사를 느낄 수 있는 박물관 같은 레스토랑. 정통 멕시코 요리를 맛보세요.", tags: ["Traditional", "History", "Authentic"], imageUrl: "https://images.unsplash.com/photo-1550966871-3ed3c47e2ce2?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=La+Casa+Grande+Monterrey" },
-    { category: 'food', name: "Prime Steak Club", description: "테라스 뷰가 멋진 현대적인 스테이크 하우스. 최상급 고기와 세련된 분위기로 인기 있는 곳입니다.", tags: ["Modern", "View", "Steak"], imageUrl: "https://images.unsplash.com/photo-1544148103-0773bf10d330?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Prime+Steak+Club+Monterrey" },
-    { category: 'shopping', name: "Paseo La Fe", description: "게스트하우스에서 가장 가까운 대형 쇼핑몰. 다양한 브랜드와 식당가, 영화관이 있어 편리합니다.", tags: ["Mall", "Cinema", "Near"], imageUrl: "https://images.unsplash.com/photo-1519567241046-7f570eee3d9f?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Paseo+La+Fe+Monterrey" },
-    { category: 'shopping', name: "Citadel (Plaza Citadel)", description: "아포다카 지역의 접근성 좋은 쇼핑몰. 대형 마트와 다양한 편의시설이 갖춰져 있습니다.", tags: ["Shopping", "Apodaca", "Convenience"], imageUrl: "https://images.unsplash.com/photo-1567958451986-2de427a4a0be?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Plaza+Citadel+Monterrey" },
-    { category: 'shopping', name: "Punto Valle", description: "산 페드로 지역의 현대적인 럭셔리 쇼핑 센터. 고급 브랜드와 세련된 레스토랑이 즐비합니다.", tags: ["Luxury", "San Pedro", "Premium"], imageUrl: "https://images.unsplash.com/photo-1567449303078-57a636256d0c?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Punto+Valle+Monterrey" },
-    { category: 'shopping', name: "Fashion Drive", description: "몬테레이 최고의 쇼핑 & 엔터테인먼트 복합 시설. 트렌디한 브랜드와 맛집이 모여있습니다.", tags: ["Fashion", "Dining", "Hotspot"], imageUrl: "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Fashion+Drive+Monterrey" },
-    { category: 'shopping', name: "Galerías Monterrey", description: "오랜 전통을 자랑하는 몬테레이의 대표적인 대형 쇼핑몰. 가족 단위 방문객에게 인기입니다.", tags: ["Classic", "Family", "Shopping"], imageUrl: "https://images.unsplash.com/photo-1534349762230-e0cadf78f5da?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Galerias+Monterrey" },
-    { category: 'shopping', name: "Pueblo Serena", description: "아름다운 조경과 스페인풍 건축이 어우러진 야외 쇼핑몰. 산책하며 쇼핑하기 좋습니다.", tags: ["Outdoor", "Beautiful", "Relax"], imageUrl: "https://images.unsplash.com/photo-1575438596634-110023055375?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Pueblo+Serena+Monterrey" },
-    { category: 'shopping', name: "Topgolf Monterrey", description: "골프와 파티를 동시에 즐길 수 있는 스포츠 엔터테인먼트 공간. 친구, 동료와 함께하기 좋습니다.", tags: ["Golf", "Party", "Activity"], imageUrl: "https://images.unsplash.com/photo-1535131749006-b7f58c99034b?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Topgolf+Monterrey" },
-    { category: 'shopping', name: "Casino Jubilee", description: "몬테레이 최대 규모의 카지노. 화려한 분위기 속에서 다양한 게임과 공연을 즐길 수 있습니다.", tags: ["Casino", "Entertainment", "Nightlife"], imageUrl: "https://images.unsplash.com/photo-1605806616949-1e87b487bc2a?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Casino+Jubilee+Monterrey" },
-    { category: 'tour', name: "Parque Fundidora", description: "과거 제철소를 개조한 몬테레이 최대 규모의 공원. 산책, 자전거, 박물관 등 볼거리가 가득합니다.", tags: ["Park", "Museum", "History"], imageUrl: "https://images.unsplash.com/photo-1628744876497-eb30460be9f6?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Parque+Fundidora" },
-    { category: 'tour', name: "Paseo Santa Lucía", description: "푼디도라 공원까지 이어지는 아름다운 인공 수로. 보트를 타며 야경을 즐기기 좋습니다.", tags: ["Riverwalk", "Boat", "Night View"], imageUrl: "https://images.unsplash.com/photo-1588616330240-6b93223404c6?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Paseo+Santa+Lucia" },
-    { category: 'tour', name: "Cola de Caballo", description: "말 꼬리 모양을 닮은 웅장한 폭포. 자연 속에서 힐링할 수 있는 최고의 명소입니다.", tags: ["Waterfall", "Nature", "Hiking"], imageUrl: "https://images.unsplash.com/photo-1646626198873-3362769027e0?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Cola+de+Caballo+Monterrey" },
-    { category: 'tour', name: "Chipinque", description: "몬테레이 시내를 한눈에 내려다볼 수 있는 생태 공원. 야생동물을 만날 수도 있습니다.", tags: ["Mountain", "View", "Coati"], imageUrl: "https://images.unsplash.com/photo-1598384536785-700607c46626?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Chipinque+Ecological+Park" },
-    { category: 'tour', name: "Grutas de García", description: "케이블카를 타고 올라가는 신비로운 석회암 동굴. 웅장한 종유석과 석순을 감상하세요.", tags: ["Caves", "Cable Car", "Nature"], imageUrl: "https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Grutas+de+Garcia" },
-    { category: 'tour', name: "Macroplaza", description: "중남미 최대 규모의 광장. 정부 청사, 성당, 박물관 등이 모여 있는 몬테레이의 중심입니다.", tags: ["City Center", "Plaza", "Landmark"], imageUrl: "https://images.unsplash.com/photo-1596481373740-647375626459?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Macroplaza+Monterrey" },
-    { category: 'tour', name: "Museo de Historia Mexicana", description: "멕시코의 역사를 한눈에 볼 수 있는 박물관. 현대적인 건축물과 다양한 전시가 인상적입니다.", tags: ["Museum", "History", "Culture"], imageUrl: "https://images.unsplash.com/photo-1554907984-15263bfd63bd?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Museo+de+Historia+Mexicana" },
-    { category: 'tour', name: "Bioparque Estrella", description: "사파리 투어를 즐길 수 있는 동물원 테마파크. 가족 단위 여행객에게 강력 추천합니다.", tags: ["Safari", "Zoo", "Family"], imageUrl: "https://images.unsplash.com/photo-1534567176735-984763282169?q=80&w=800&auto=format&fit=crop", mapUrl: "https://www.google.com/search?q=Bioparque+Estrella+Monterrey" }
-];
-
+const legacyDefaultRecommendations: Omit<RecommendationItem, 'id'>[] = [];
 
 export const useGuestHouseData = (onNewBooking?: (booking: Booking) => void) => {
   const [houses, setHouses] = useState<House[]>([]);
@@ -97,6 +54,7 @@ export const useGuestHouseData = (onNewBooking?: (booking: Booking) => void) => 
   const [galleryMedia, setGalleryMedia] = useState<GalleryMediaItem[]>([]);
   const [cars, setCars] = useState<Car[]>([]);
   const [recommendations, setRecommendations] = useState<RecommendationItem[]>([]);
+  const [categoryConfigs, setCategoryConfigs] = useState<RecommendationCategoryConfig[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -106,12 +64,9 @@ export const useGuestHouseData = (onNewBooking?: (booking: Booking) => void) => 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      // Only set as authenticated if user exists AND is not anonymous
-      // This prevents guests (anonymous users) from seeing the admin dashboard
       setIsAuthenticated(!!currentUser && !currentUser.isAnonymous);
       setIsLoading(false);
       
-      // Auto sign-in anonymously if no user
       if (!currentUser) {
           signInAnonymously(auth).catch(err => console.error("Auto-anonymous sign-in failed:", err));
       }
@@ -155,9 +110,9 @@ export const useGuestHouseData = (onNewBooking?: (booking: Booking) => void) => 
   }, []);
 
 
-  // --- PUBLIC DATA FETCHING (Gallery & Recommendations) ---
+  // --- PUBLIC DATA FETCHING ---
   useEffect(() => {
-    if (!user) return; // Guard: Ensure user is authenticated (even anonymously) before fetching
+    if (!user) return; 
 
     const galleryQuery = query(collection(db, 'gallery'), orderBy('order'));
     const unsubGallery = onSnapshot(galleryQuery, (snapshot) => {
@@ -176,11 +131,21 @@ export const useGuestHouseData = (onNewBooking?: (booking: Booking) => void) => 
         console.error("Error fetching recommendations:", error);
     });
     
+    // Category Configs Fetch
+    const catConfigQuery = query(collection(db, 'recommendation_categories'));
+    const unsubCatConfig = onSnapshot(catConfigQuery, (snapshot) => {
+        const configs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as RecommendationCategoryConfig));
+        setCategoryConfigs(configs);
+    }, (error) => {
+        console.error("Error fetching category configs:", error);
+    });
+    
     return () => {
         unsubGallery();
         unsubRec();
+        unsubCatConfig();
     }
-  }, [user]); // Re-run when user auth state changes
+  }, [user]);
 
   // --- ADMIN-ONLY DATA FETCHING ---
   useEffect(() => {
@@ -374,7 +339,6 @@ export const useGuestHouseData = (onNewBooking?: (booking: Booking) => void) => 
   };
 
   const addBooking = async (newBooking: Omit<Booking, 'id' | 'status' | 'flightTicketUrl'>, flightTicket?: File) => {
-    // Ensure we have a user (even anonymous)
     if (!auth.currentUser) {
         try {
             await signInAnonymously(auth);
@@ -596,14 +560,13 @@ export const useGuestHouseData = (onNewBooking?: (booking: Booking) => void) => 
         } catch (error: any) {
              if (error.code === 'storage/unauthorized') {
                 alert("이미지 업로드 권한이 없습니다. Firebase Storage Rules를 확인해주세요.");
-                return; // Abort update if image failed
+                return; 
             } else {
                 throw error;
             }
         }
     }
     
-    // Ensure no undefined values
     const cleanData: any = { ...updatedData };
     Object.keys(cleanData).forEach(key => cleanData[key] === undefined && delete cleanData[key]);
 
@@ -646,7 +609,6 @@ export const useGuestHouseData = (onNewBooking?: (booking: Booking) => void) => 
           ...item, 
           imageUrl, 
           imagePath,
-          // Ensure optional fields are null if undefined to satisfy Firestore
           imagePosition: item.imagePosition || null 
       });
   };
@@ -676,16 +638,64 @@ export const useGuestHouseData = (onNewBooking?: (booking: Booking) => void) => 
              }
              throw error;
           }
+      } else if (data.imageUrl && data.imageUrl !== oldRec?.imageUrl) {
+          // If URL provided manually (and differs from old one) and no file uploaded
+          if (oldRec?.imagePath) {
+              const oldRef = ref(storage, oldRec.imagePath);
+              await deleteObject(oldRef).catch(e => console.warn("Failed to delete old recommendation image", e));
+          }
+           // We are switching to a manually provided URL, so clear imagePath
+          updates.imagePath = null;
       }
       
-      // Clean undefined values
       Object.keys(updates).forEach(key => updates[key] === undefined && delete updates[key]);
-      // Handle null for imagePosition explicitly if passed as undefined in partial (should be handled by caller, but safety check)
       if (updates.imagePosition === undefined && data.hasOwnProperty('imagePosition')) {
           updates.imagePosition = null;
       }
 
       await updateDoc(recDocRef, updates);
+  };
+  
+  const updateCategoryConfig = async (id: RecommendationCategory, data: Partial<RecommendationCategoryConfig>, imageFile?: File) => {
+      // Use setDoc with merge to ensure document exists, since IDs are fixed
+      const docRef = doc(db, 'recommendation_categories', id);
+      const updates: any = { ...data };
+      
+      const oldConfig = categoryConfigs.find(c => c.id === id);
+
+      if (imageFile) {
+          // If a config already exists and has an image path, we might want to clean it up.
+          if (oldConfig?.imagePath) {
+               const oldRef = ref(storage, oldConfig.imagePath);
+               await deleteObject(oldRef).catch(e => console.warn("Failed to delete old category image", e));
+          }
+
+          try {
+            const filePath = `recommendation_categories/${id}-${Date.now()}-${imageFile.name}`;
+            const newRef = ref(storage, filePath);
+            const snapshot = await uploadBytes(newRef, imageFile);
+            updates.imageUrl = await getDownloadURL(snapshot.ref);
+            updates.imagePath = snapshot.ref.fullPath;
+          } catch (error: any) {
+             if (error.code === 'storage/unauthorized') {
+                alert("이미지 업로드 권한이 없습니다. Firebase Storage Rules를 확인해주세요.");
+                return;
+             }
+             throw error;
+          }
+      } else if (updates.imageUrl && updates.imageUrl !== oldConfig?.imageUrl) {
+          // If a new URL is provided (string) and it's different from the old one,
+          // AND we are NOT uploading a file (because if imageFile was true, we'd be in the if block),
+          // check if we need to clean up an old file from storage.
+          if (oldConfig?.imagePath) {
+               const oldRef = ref(storage, oldConfig.imagePath);
+               await deleteObject(oldRef).catch(e => console.warn("Failed to delete old category image", e));
+          }
+          // We are switching to a manually provided URL, so clear imagePath
+          updates.imagePath = null;
+      }
+      
+      await setDoc(docRef, updates, { merge: true });
   };
 
   const deleteRecommendation = async (id: string) => {
@@ -730,7 +740,6 @@ export const useGuestHouseData = (onNewBooking?: (booking: Booking) => void) => 
       }
   };
 
-  // Function to remove duplicates based on 'name'
   const removeDuplicates = async () => {
       setIsLoading(true);
       try {
@@ -739,13 +748,11 @@ export const useGuestHouseData = (onNewBooking?: (booking: Booking) => void) => 
           const batch = writeBatch(db);
           let deleteCount = 0;
 
-          // Process in memory, then batch delete duplicates
-          // We keep the first occurrence and delete subsequent ones
           snapshot.docs.forEach((doc) => {
               const data = doc.data();
               const name = data.name ? data.name.trim() : '';
 
-              if (!name) return; // Skip invalid entries
+              if (!name) return;
 
               if (seenNames.has(name)) {
                   batch.delete(doc.ref);
@@ -862,6 +869,7 @@ export const useGuestHouseData = (onNewBooking?: (booking: Booking) => void) => 
     galleryMedia,
     cars,
     recommendations,
+    categoryConfigs,
     addCar,
     updateCar,
     deleteCar,
@@ -881,6 +889,7 @@ export const useGuestHouseData = (onNewBooking?: (booking: Booking) => void) => 
     deleteRecommendation,
     cleanupDefaultData,
     removeDuplicates,
+    updateCategoryConfig,
     isAuthenticated,
     isLoading,
     user,

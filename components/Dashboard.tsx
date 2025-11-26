@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { SparkleIcon, InfoIcon, BuildingIcon, CheckCircleIcon, CloseIcon, CameraIcon, ArrowLeftIcon, HomeModernIcon, BuildingStorefrontIcon, SpeakerWaveIcon, SpeakerXMarkIcon, UserIcon, FireIcon, CarIcon, ClockIcon, BoltIcon, WifiIcon, DropIcon, LinkIcon, MapPinIcon, NavigationIcon, PaperAirplaneIcon } from './icons';
 import { Modal } from './Modal';
 import { getWeatherInfo } from '../services/geminiService';
-import type { GalleryMediaItem, GalleryImage, GalleryCategory, RecommendationItem, RecommendationCategory } from '../types';
+import type { GalleryMediaItem, GalleryImage, GalleryCategory, RecommendationItem, RecommendationCategory, RecommendationCategoryConfig } from '../types';
 
 // Rec Theme Definition
 const recTheme = {
@@ -255,29 +256,66 @@ const InfoWidget: React.FC = () => {
 
 const MusicPlayer: React.FC = () => {
     const [isPlaying, setIsPlaying] = useState(false);
-    const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
-    const audioRef = useRef<HTMLAudioElement>(null);
-
+    
+    // Expanded playlist to ensure variety for each day of the week
     const playlist = [
         "https://cdn.pixabay.com/download/audio/2022/04/27/audio_67bcf729cf.mp3?filename=spring-flowers-11837.mp3", 
         "https://cdn.pixabay.com/download/audio/2022/05/05/audio_13941e23f9.mp3?filename=good-morning-12693.mp3", 
-        "https://cdn.pixabay.com/download/audio/2022/03/09/audio_c8c91e332b.mp3?filename=acoustic-breeze-11457.mp3"       
+        "https://cdn.pixabay.com/download/audio/2022/03/09/audio_c8c91e332b.mp3?filename=acoustic-breeze-11457.mp3",
+        "https://cdn.pixabay.com/download/audio/2022/02/10/audio_fc8c82386a.mp3?filename=relaxing-mountains-13494.mp3",
+        "https://cdn.pixabay.com/download/audio/2022/01/26/audio_d1c164b301.mp3?filename=forest-lullaby-110624.mp3",
+        "https://cdn.pixabay.com/download/audio/2022/10/25/audio_5579f976dc.mp3?filename=spirit-blossom-15285.mp3",
+        "https://cdn.pixabay.com/download/audio/2021/11/01/audio_0974351b02.mp3?filename=inspire-ambient-11048.mp3"
     ];
+
+    // Initialize the current track based on the day of the month
+    // This ensures a different starting track every day (cycling through the 7 items)
+    const [currentTrackIndex, setCurrentTrackIndex] = useState(() => {
+        const today = new Date();
+        const dayOfMonth = today.getDate(); // 1-31
+        return dayOfMonth % playlist.length;
+    });
+
+    const audioRef = useRef<HTMLAudioElement>(null);
+    const hasInteractedRef = useRef(false);
 
     useEffect(() => {
         const attemptPlay = async () => {
             if (audioRef.current) {
                 try {
-                    audioRef.current.volume = 0.4;
+                    audioRef.current.volume = 0.5;
                     await audioRef.current.play();
                     setIsPlaying(true);
                 } catch (e) {
-                    console.warn("Autoplay blocked by browser policy:", e);
+                    console.warn("Autoplay blocked by browser policy. Waiting for user interaction.", e);
                     setIsPlaying(false);
                 }
             }
         };
+
+        const handleInteraction = () => {
+            if (!hasInteractedRef.current && audioRef.current) {
+                hasInteractedRef.current = true;
+                // Only try to play if not already playing or intentionally paused
+                if (audioRef.current.paused) {
+                    attemptPlay();
+                }
+            }
+        };
+
+        // Try immediately
         attemptPlay();
+
+        // Add listeners for interaction
+        window.addEventListener('click', handleInteraction);
+        window.addEventListener('touchstart', handleInteraction);
+        window.addEventListener('keydown', handleInteraction);
+
+        return () => {
+            window.removeEventListener('click', handleInteraction);
+            window.removeEventListener('touchstart', handleInteraction);
+            window.removeEventListener('keydown', handleInteraction);
+        };
     }, []);
 
     useEffect(() => {
@@ -312,9 +350,12 @@ const MusicPlayer: React.FC = () => {
         if (isPlaying) {
             audioRef.current.pause();
         } else {
+            audioRef.current.volume = 0.5;
             audioRef.current.play().catch(err => console.log("Play prevented:", err));
         }
         setIsPlaying(!isPlaying);
+        // Mark as interacted so we don't auto-resume if user pauses
+        hasInteractedRef.current = true;
     };
 
     return (
@@ -380,6 +421,7 @@ interface IntroductionProps {
     setActiveModal: (modal: string | null) => void;
     galleryMedia: GalleryMediaItem[];
     recommendations: RecommendationItem[];
+    categoryConfigs?: RecommendationCategoryConfig[];
     visitorCount?: number;
     registerBackHandler?: (handler: () => boolean) => void;
     unregisterBackHandler?: () => void;
@@ -468,7 +510,7 @@ const CompactServiceCard: React.FC<{
     );
 };
 
-export const Introduction: React.FC<IntroductionProps> = ({ activeModal, setActiveModal, galleryMedia, recommendations, visitorCount = 0, registerBackHandler, unregisterBackHandler }) => {
+export const Introduction: React.FC<IntroductionProps> = ({ activeModal, setActiveModal, galleryMedia, recommendations, categoryConfigs = [], visitorCount = 0, registerBackHandler, unregisterBackHandler }) => {
     const [kakaoIdCopied, setKakaoIdCopied] = useState(false);
     const [selectedMediaIndex, setSelectedMediaIndex] = useState<number | null>(null);
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
@@ -623,12 +665,64 @@ export const Introduction: React.FC<IntroductionProps> = ({ activeModal, setActi
     }, [selectedMediaIndex, visibleMedia, selectedCategory]);
     
     // Category metadata for Recommendations
-    const recCategories: { id: RecommendationCategory; title: string; sub: string; icon: React.FC<{ className?: string }>; color: string }[] = [
-        { id: 'korean', title: '한인 편의시설 & 맛집', sub: 'Coreano', icon: HomeModernIcon, color: 'text-rose-600 bg-rose-50 border-rose-100 hover:border-rose-300' },
-        { id: 'food', title: '로컬 맛집 탐방', sub: 'Restaurantes Locales', icon: FireIcon, color: 'text-orange-600 bg-orange-50 border-orange-100 hover:border-orange-300' },
-        { id: 'shopping', title: '쇼핑 및 여가', sub: 'Compras', icon: BuildingStorefrontIcon, color: 'text-purple-600 bg-purple-50 border-purple-100 hover:border-purple-300' },
-        { id: 'tour', title: '관광 명소', sub: 'Turismo', icon: CameraIcon, color: 'text-green-600 bg-green-50 border-green-100 hover:border-green-300' }
-    ];
+    const recCategories: { 
+        id: RecommendationCategory; 
+        title: string; 
+        sub: string; 
+        icon: React.FC<{ className?: string }>; 
+        color: string;
+        image: string;
+    }[] = useMemo(() => {
+        const defaults = [
+            { 
+                id: 'korean' as RecommendationCategory, 
+                title: '한인 편의시설 & 맛집', 
+                sub: 'Comida Coreana', 
+                icon: HomeModernIcon, 
+                color: 'text-rose-600',
+                image: 'https://images.unsplash.com/photo-1580651315530-69c8e0026377?q=80&w=1200&auto=format&fit=crop'
+            },
+            { 
+                id: 'food' as RecommendationCategory, 
+                title: '로컬 맛집 탐방', 
+                sub: 'Restaurantes Locales', 
+                icon: FireIcon, 
+                color: 'text-orange-600',
+                image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=1200&auto=format&fit=crop'
+            },
+            { 
+                id: 'shopping' as RecommendationCategory, 
+                title: '쇼핑 및 여가', 
+                sub: 'Compras', 
+                icon: BuildingStorefrontIcon, 
+                color: 'text-purple-600',
+                image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=1200&auto=format&fit=crop'
+            },
+            { 
+                id: 'tour' as RecommendationCategory, 
+                title: '관광 명소', 
+                sub: 'Turismo', 
+                icon: CameraIcon, 
+                color: 'text-green-600', 
+                image: 'https://plus.unsplash.com/premium_photo-1697729600773-5b03d9703666?q=80&w=1200&auto=format&fit=crop'
+            }
+        ];
+        
+        if (!categoryConfigs || categoryConfigs.length === 0) return defaults;
+        
+        return defaults.map(def => {
+            const config = categoryConfigs.find(c => c.id === def.id);
+            if (config) {
+                return {
+                    ...def,
+                    title: config.title || def.title,
+                    sub: config.sub || def.sub,
+                    image: config.imageUrl || def.image,
+                };
+            }
+            return def;
+        });
+    }, [categoryConfigs]);
     
     // Destinations for Navigation Dashboard
     const destinations = [
@@ -712,6 +806,14 @@ export const Introduction: React.FC<IntroductionProps> = ({ activeModal, setActi
                     .custom-scrollbar::-webkit-scrollbar-thumb {
                         background: rgba(0,0,0,0.1);
                         border-radius: 2px;
+                    }
+                    /* Hide scrollbar for recommendation modal content */
+                    .no-scrollbar::-webkit-scrollbar {
+                        display: none;
+                    }
+                    .no-scrollbar {
+                        -ms-overflow-style: none;
+                        scrollbar-width: none;
                     }
                 `}
             </style>
@@ -926,26 +1028,40 @@ export const Introduction: React.FC<IntroductionProps> = ({ activeModal, setActi
                          </button>
                     </div>
 
-                    {/* Content Section */}
-                    <div className="flex-1 overflow-y-auto px-3 py-4 md:p-6 max-w-7xl mx-auto w-full pb-24">
+                    {/* Content Section - Hidden Scrollbar */}
+                    <div className={`flex-1 overflow-y-auto px-3 py-4 md:p-6 max-w-7xl mx-auto w-full no-scrollbar ${!selectedRecCategory ? 'pb-24' : ''}`}>
                         
                         {!selectedRecCategory ? (
-                            // Category Selection Menu
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full content-start">
+                            // Category Selection Menu (Redesigned with Images)
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full content-start p-1">
                                 {recCategories.map((cat) => (
                                     <button
                                         key={cat.id}
                                         onClick={() => setSelectedRecCategory(cat.id)}
-                                        className={`group relative overflow-hidden rounded-2xl border p-6 flex items-center gap-6 shadow-sm hover:shadow-md transition-all duration-300 text-left ${cat.color} bg-white hover:bg-opacity-100`}
+                                        className="group relative w-full h-48 md:h-64 rounded-3xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-500 text-left"
                                     >
-                                        <div className={`p-4 rounded-full bg-opacity-20 shrink-0 ${cat.color.split(' ')[1].replace('bg-', 'bg-')}`}>
-                                            <cat.icon className="w-8 h-8" />
+                                        {/* Background Image with Zoom Effect */}
+                                        <div className="absolute inset-0">
+                                            <img 
+                                                src={cat.image} 
+                                                alt={cat.title} 
+                                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                                            />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                                         </div>
-                                        <div>
-                                            <h3 className="text-xl font-bold text-gray-800 group-hover:text-gray-900">{cat.title}</h3>
-                                            <p className="text-sm text-gray-500 font-medium mt-1">{cat.sub}</p>
+
+                                        {/* Content */}
+                                        <div className="absolute bottom-0 left-0 p-6 w-full">
+                                            {/* Icon with Glassmorphism */}
+                                            <div className="mb-3 p-3 rounded-2xl bg-white/20 backdrop-blur-md w-fit text-white ring-1 ring-white/30">
+                                                <cat.icon className="w-6 h-6" />
+                                            </div>
+                                            <h3 className="text-2xl font-bold text-white mb-1 drop-shadow-md">{cat.title}</h3>
+                                            <p className="text-sm text-gray-200 font-medium">{cat.sub}</p>
                                         </div>
-                                        <div className="absolute right-4 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400">
+
+                                        {/* Arrow Icon (Reveals on Hover) */}
+                                        <div className="absolute top-4 right-4 p-2 rounded-full bg-white/10 backdrop-blur-sm text-white opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-4 group-hover:translate-x-0">
                                             <ArrowLeftIcon className="w-6 h-6 rotate-180" />
                                         </div>
                                     </button>
@@ -953,28 +1069,30 @@ export const Introduction: React.FC<IntroductionProps> = ({ activeModal, setActi
                             </div>
                         ) : (
                             // Selected Category List
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in-up-fast">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in-up-fast pb-6">
                                 {recommendations.filter(r => r.category === selectedRecCategory).map((item) => (
                                     <RecommendationCard key={item.id} item={item} />
                                 ))}
                             </div>
                         )}
-                        
-                        {/* Large Close Button at bottom */}
-                        <div className="mt-8 flex justify-center pb-6">
+                    </div>
+                    
+                    {/* Fixed Footer for Close Button - ONLY SHOW WHEN NO CATEGORY IS SELECTED (Menu Screen) */}
+                    {!selectedRecCategory && (
+                        <div className="fixed bottom-6 left-0 right-0 flex justify-center z-50 pointer-events-none">
                             <button
                                 onClick={handleRecModalClose}
-                                className="bg-white text-gray-800 shadow-md border border-gray-200 rounded-full px-8 py-3 flex items-center gap-2 hover:bg-gray-50 transition-transform active:scale-95"
+                                className="pointer-events-auto bg-white/90 backdrop-blur-md text-gray-800 shadow-2xl border border-gray-200 rounded-full px-8 py-3 flex items-center gap-2 hover:bg-gray-50 transition-transform active:scale-95"
                             >
-                                <CloseIcon className="w-6 h-6 text-gray-500" />
+                                <CloseIcon className="w-6 h-6" />
                                 <span className="font-bold text-lg">닫기 (Cerrar)</span>
                             </button>
                         </div>
-                    </div>
+                    )}
                 </div>
             </Modal>
             
-            <Modal isOpen={activeModal === 'services'} onClose={() => setActiveModal(null)} title="서비스 안내 (Servicios)" size="fullscreen">
+            <Modal isOpen={activeModal === 'services'} onClose={() => setActiveModal(null)} title="서비스 안내 (Servicios)" size="fullscreen" hideHeader={true}>
                  {/* ... (Service Modal Content - Unchanged) ... */}
                  <div className={`flex flex-col bg-gray-50 font-sans ${activeModal === 'services' ? 'md:h-full' : ''}`}>
                     {/* Hero / Header - Illustrated Graphics */}
@@ -998,7 +1116,7 @@ export const Introduction: React.FC<IntroductionProps> = ({ activeModal, setActi
                     </div>
 
                     {/* --- DESKTOP LAYOUT (Fixed Height, Grid) --- */}
-                    <div className="hidden md:flex flex-1 flex-col overflow-hidden p-4 gap-4 max-w-7xl mx-auto w-full relative z-0">
+                    <div className="hidden md:flex flex-1 flex-col overflow-hidden p-4 gap-4 max-w-7xl mx-auto w-full relative z-0 pb-24">
                         <div className="flex-1 grid grid-cols-3 gap-4 min-h-0">
                              <CompactServiceCard 
                                 className="h-full"
@@ -1046,67 +1164,110 @@ export const Introduction: React.FC<IntroductionProps> = ({ activeModal, setActi
                         
                         {/* Desktop Pricing & Restaurant Info */}
                         <div className="shrink-0 w-full grid grid-cols-2 gap-4 animate-fade-in-up-delay" style={{ animationDelay: '0.4s' }}>
-                             {/* Accommodation Pricing - Illustrated Style */}
-                             <div className="bg-white rounded-xl shadow-sm border border-emerald-100 overflow-hidden flex flex-col h-32 group hover:shadow-md transition-all">
-                                 <div className="bg-emerald-600 text-white px-3 py-2 flex items-center justify-between shadow-sm shrink-0 relative overflow-hidden">
-                                     <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '8px 8px' }}></div>
-                                     <div className="flex items-center gap-2 relative z-10">
-                                         <div className="p-1 bg-white/20 rounded">
-                                            <FireIcon className="w-4 h-4 text-white" />
+                             
+                             {/* Pricing Card */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden flex flex-col h-72 group hover:shadow-md transition-all relative">
+                                 <div className="absolute top-0 right-0 p-3 opacity-5">
+                                    <FireIcon className="w-32 h-32 text-emerald-900" />
+                                 </div>
+                                 
+                                 <div className="bg-emerald-600 text-white px-6 py-4 flex items-center justify-between shadow-sm shrink-0 relative overflow-hidden">
+                                     {/* Header content */}
+                                     <div className="flex items-center gap-3 relative z-10">
+                                         <div className="p-2 bg-white/20 rounded-lg">
+                                            <FireIcon className="w-6 h-6 text-white" />
                                          </div>
-                                         <span className="font-bold text-sm tracking-wide">숙박 및 서비스 (Alojamiento)</span>
+                                         <div>
+                                            <span className="font-bold text-xl tracking-wide block">숙박 및 서비스 (Alojamiento)</span>
+                                            <span className="text-xs text-emerald-100 font-medium">합리적인 가격과 최고의 서비스</span>
+                                         </div>
                                      </div>
                                  </div>
-                                 <div className="p-2 flex-1 grid grid-cols-3 gap-2 divide-x divide-gray-100 text-gray-800 items-center">
-                                     <div className="text-center group-hover:scale-105 transition-transform">
-                                         <h4 className="text-xs font-bold text-gray-500">숙박 (1인)</h4>
-                                         <div className="text-xl font-extrabold text-emerald-700 my-0.5">$80</div>
-                                         <span className="text-[9px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded border border-emerald-100 font-bold whitespace-nowrap">조/석식 포함</span>
-                                     </div>
-                                     <div className="text-center">
-                                         <h4 className="text-xs font-bold text-gray-500">출퇴근</h4>
-                                         <div className="text-xl font-extrabold text-gray-800 my-0.5">$15~20</div>
-                                         <span className="text-[9px] bg-gray-50 text-gray-600 px-1.5 py-0.5 rounded border border-gray-100 whitespace-nowrap">거리 비례</span>
-                                     </div>
-                                     <div className="text-center">
-                                         <h4 className="text-xs font-bold text-gray-500">렌트카</h4>
-                                         <div className="text-sm font-bold text-gray-800 my-1.5">별도 문의</div>
-                                         <span className="text-[9px] bg-gray-50 text-gray-600 px-1.5 py-0.5 rounded border border-gray-100 whitespace-nowrap">차종별 상이</span>
-                                     </div>
-                                 </div>
-                             </div>
 
-                             {/* Restaurant Info - Illustrated Style */}
-                             <div className="bg-white rounded-xl shadow-sm border border-orange-100 overflow-hidden flex flex-col h-32 group hover:shadow-md transition-all">
-                                 <div className="bg-orange-500 text-white px-3 py-2 flex items-center justify-between shadow-sm shrink-0 relative overflow-hidden">
-                                     <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '8px 8px' }}></div>
-                                     <div className="flex items-center gap-2 relative z-10">
-                                         <div className="p-1 bg-white/20 rounded">
-                                            <BuildingStorefrontIcon className="w-4 h-4 text-white" />
+                                 <div className="p-6 flex-1 grid grid-cols-3 gap-6 text-gray-800 items-center relative z-10">
+                                     {/* Item 1 */}
+                                     <div className="flex flex-col items-center justify-center text-center group-hover:scale-105 transition-transform p-4 rounded-xl hover:bg-emerald-50/50">
+                                         <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">숙박 (1인/1박)</h4>
+                                         <div className="text-4xl font-extrabold text-emerald-600 mb-2">$80</div>
+                                         <span className="text-xs bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full font-bold">조/석식 포함</span>
+                                     </div>
+                                     {/* Item 2 */}
+                                     <div className="flex flex-col items-center justify-center text-center p-4 border-x border-gray-100">
+                                         <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">출퇴근 지원</h4>
+                                         <div className="text-3xl font-extrabold text-gray-700 mb-2">$15~20</div>
+                                         <span className="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full">거리 비례 (1일)</span>
+                                     </div>
+                                     {/* Item 3 */}
+                                     <div className="flex flex-col items-center justify-center text-center p-4">
+                                         <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">렌트카</h4>
+                                         <div className="text-2xl font-bold text-gray-700 mb-2">별도 문의</div>
+                                         <span className="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full">차종별 상이</span>
+                                     </div>
+                                 </div>
+                            </div>
+
+                            {/* Restaurant Card */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-orange-100 overflow-hidden flex flex-col h-72 group hover:shadow-md transition-all relative">
+                                 <div className="absolute bottom-0 left-0 p-3 opacity-5">
+                                    <BuildingStorefrontIcon className="w-40 h-40 text-orange-900" />
+                                 </div>
+
+                                 <div className="bg-orange-500 text-white px-6 py-4 flex items-center justify-between shadow-sm shrink-0 relative overflow-hidden">
+                                     <div className="flex items-center gap-3 relative z-10">
+                                         <div className="p-2 bg-white/20 rounded-lg">
+                                            <BuildingStorefrontIcon className="w-6 h-6 text-white" />
                                          </div>
-                                         <span className="font-bold text-sm tracking-wide">식당 안내 (Restaurante)</span>
+                                         <div>
+                                            <span className="font-bold text-xl tracking-wide block">식당 안내 (Restaurante)</span>
+                                            <span className="text-xs text-orange-100 font-medium">건강하고 맛있는 한식 뷔페</span>
+                                         </div>
                                      </div>
                                  </div>
-                                 <div className="p-2 flex-1 grid grid-cols-2 gap-2 text-gray-800 text-xs items-center">
-                                     <div className="flex flex-col justify-center pl-2 border-r border-gray-100">
-                                         <div className="font-bold text-orange-600 mb-1 flex items-center gap-1"><ClockIcon className="w-3 h-3"/> 영업시간 (Horario)</div>
-                                         <p><span className="font-semibold text-gray-800">월~토:</span> 06:00-08:00 / 18:00-20:30</p>
-                                         <p><span className="font-semibold text-gray-800">일요일:</span> 06:00-08:00 / 18:00-20:00</p>
+
+                                 <div className="p-6 flex-1 grid grid-cols-2 gap-8 text-gray-800 items-center relative z-10">
+                                     {/* Hours */}
+                                     <div className="flex flex-col justify-center h-full pl-4 border-r border-orange-100">
+                                         <div className="font-bold text-orange-600 mb-4 flex items-center gap-2 text-lg">
+                                            <ClockIcon className="w-6 h-6"/> 영업시간 (Horario)
+                                         </div>
+                                         <ul className="space-y-3">
+                                            <li className="flex flex-col">
+                                                <span className="font-bold text-gray-700 text-sm">월~토 (Lunes - Sábado)</span>
+                                                <span className="text-lg text-gray-600">06:00-08:00 / 18:00-20:30</span>
+                                            </li>
+                                            <li className="flex flex-col">
+                                                <span className="font-bold text-gray-700 text-sm">일요일 (Domingo)</span>
+                                                <span className="text-lg text-gray-600">06:00-08:00 / 18:00-20:00</span>
+                                            </li>
+                                         </ul>
                                      </div>
-                                     <div className="flex flex-col justify-center pl-2 group-hover:scale-105 transition-transform origin-left">
-                                         <div className="font-bold text-orange-600 mb-1 flex items-center gap-1"><FireIcon className="w-3 h-3"/> 뷔페 가격 (Precios)</div>
-                                         <p>조식 $150 / 석식 $250</p>
-                                         <p className="font-bold text-rose-600 mt-0.5">★ 토요일 특식 $350</p>
-                                         <p className="text-[9px] text-gray-500 -mt-0.5">(삼겹살/소고기 - Carne Asada)</p>
+                                     {/* Prices */}
+                                     <div className="flex flex-col justify-center h-full pl-4 group-hover:translate-x-1 transition-transform">
+                                         <div className="font-bold text-orange-600 mb-4 flex items-center gap-2 text-lg">
+                                            <FireIcon className="w-6 h-6"/> 뷔페 가격 (Precios)
+                                         </div>
+                                         <div className="space-y-3">
+                                             <div className="flex items-baseline justify-between border-b border-gray-100 pb-2">
+                                                 <span className="text-gray-600 font-medium">조식/석식</span>
+                                                 <span className="text-2xl font-bold text-gray-800">$150 / $250</span>
+                                             </div>
+                                             <div className="bg-rose-50 p-3 rounded-lg border border-rose-100">
+                                                 <div className="flex justify-between items-center text-rose-700">
+                                                     <span className="font-bold">★ 토요일 특식</span>
+                                                     <span className="font-bold text-2xl">$350</span>
+                                                 </div>
+                                                 <p className="text-xs text-rose-500 mt-1 font-medium">삼겹살/소고기 (Carne Asada)</p>
+                                             </div>
+                                         </div>
                                      </div>
                                  </div>
-                             </div>
+                            </div>
                         </div>
                     </div>
 
 
                     {/* --- MOBILE LAYOUT (Vertical Scroll, Stacked) --- */}
-                    <div className="md:hidden p-3 space-y-4 pb-12">
+                    <div className="md:hidden p-3 space-y-4 pb-28">
                          <div className="space-y-4">
                              <CompactServiceCard 
                                 className="h-64"
@@ -1246,6 +1407,17 @@ export const Introduction: React.FC<IntroductionProps> = ({ activeModal, setActi
                                  </div>
                              </div>
                         </div>
+                    </div>
+
+                    {/* Fixed Close Button */}
+                    <div className="fixed bottom-6 left-0 right-0 flex justify-center z-50 pointer-events-none">
+                        <button
+                            onClick={() => setActiveModal(null)}
+                            className="pointer-events-auto bg-white/90 backdrop-blur-md text-gray-800 shadow-2xl border border-gray-200 rounded-full px-8 py-3 flex items-center gap-2 hover:bg-gray-50 transition-transform active:scale-95"
+                        >
+                            <CloseIcon className="w-6 h-6" />
+                            <span className="font-bold text-lg">닫기 (Cerrar)</span>
+                        </button>
                     </div>
                 </div>
             </Modal>

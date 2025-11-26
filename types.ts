@@ -123,3 +123,11 @@ export interface RecommendationItem {
     mapUrl: string;
     imagePosition?: 'object-center' | 'object-top' | 'object-bottom' | 'object-left' | 'object-right';
 }
+
+export interface RecommendationCategoryConfig {
+    id: RecommendationCategory;
+    title: string;
+    sub: string;
+    imageUrl: string;
+    imagePath?: string;
+}

@@ -220,11 +220,10 @@ const App: React.FC = () => {
 
   // --- Share Handler ---
   const handleShare = async () => {
-      const shareUrl = window.location.href;
+      const shareUrl = 'https://service-954114529049.us-west1.run.app/';
       
       const shareData = {
           title: '늘봄 게스트하우스',
-          text: '멕시코 몬테레이 늘봄 게스트하우스',
           url: shareUrl,
       };
 
@@ -311,7 +310,8 @@ const App: React.FC = () => {
           const { publicView, adminView, isLoginModalOpen, isAssignModalOpen, activeModal, isAuthenticated, newBookingForPopup } = stateRef.current;
           let handled = false;
 
-          // Priority 1: Component-level Handlers (e.g. Gallery Lightbox, internal navigations)
+          // Priority 1: Component-level Handlers (e.g. Gallery Lightbox, Recommendation Internal Navigation)
+          // This handles "Recommendation Details" -> "Recommendation Menu" via Dashboard.tsx's handler
           if (backHandlerRef.current) {
               handled = backHandlerRef.current();
           }
@@ -328,6 +328,7 @@ const App: React.FC = () => {
                 setIsLoginModalOpen(false);
                 handled = true;
             } else if (activeModal) {
+                // This closes the Recommendation Modal if we are at the root menu level
                 setActiveModal(null);
                 handled = true;
             } else {
@@ -416,6 +417,7 @@ const App: React.FC = () => {
       case 'intro': return <Introduction 
         galleryMedia={data.galleryMedia} 
         recommendations={data.recommendations}
+        categoryConfigs={data.categoryConfigs}
         activeModal={activeModal} 
         setActiveModal={setActiveModal} 
         visitorCount={data.visitorCount} 
@@ -426,6 +428,7 @@ const App: React.FC = () => {
       default: return <Introduction 
         galleryMedia={data.galleryMedia} 
         recommendations={data.recommendations}
+        categoryConfigs={data.categoryConfigs}
         activeModal={activeModal} 
         setActiveModal={setActiveModal} 
         visitorCount={data.visitorCount}
@@ -460,6 +463,7 @@ const App: React.FC = () => {
       case 'home': return <Introduction 
         galleryMedia={data.galleryMedia} 
         recommendations={data.recommendations}
+        categoryConfigs={data.categoryConfigs}
         activeModal={activeModal} 
         setActiveModal={setActiveModal} 
         visitorCount={data.visitorCount}
@@ -600,6 +604,8 @@ const App: React.FC = () => {
             deleteRecommendation={data.deleteRecommendation}
             removeDuplicates={data.removeDuplicates}
             cleanupDefaultData={data.cleanupDefaultData}
+            updateCategoryConfig={data.updateCategoryConfig}
+            categoryConfigs={data.categoryConfigs}
             onBack={() => setAdminView('integratedManagement')}
             registerBackHandler={registerBackHandler}
             unregisterBackHandler={unregisterBackHandler}
